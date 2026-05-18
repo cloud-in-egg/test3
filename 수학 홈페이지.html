@@ -417,6 +417,52 @@
       min-width: 120px;
     }
 
+    .segmented {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      width: 100%;
+    }
+
+    .segment-btn {
+      min-height: 42px;
+      padding: 0 12px;
+      color: var(--ink);
+      background: #fff;
+      border: 1px solid var(--line);
+      box-shadow: none;
+    }
+
+    .segment-btn.active {
+      color: #fff;
+      background: var(--primary);
+      border-color: var(--primary);
+      box-shadow: 0 10px 22px rgba(20, 122, 108, 0.18);
+    }
+
+    .ox-answer {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .ox-choice {
+      min-height: 74px;
+      font-size: 28px;
+      font-weight: 900;
+    }
+
+    .ox-choice[data-ox-answer="X"] {
+      background: var(--coral);
+      box-shadow: 0 10px 22px rgba(232, 93, 117, 0.22);
+    }
+
+    .ox-choice.selected {
+      outline: 4px solid rgba(244, 185, 66, 0.48);
+      outline-offset: 3px;
+    }
+
     .stats-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -654,7 +700,6 @@
         <p id="roundSummary">대기 중</p>
       </div>
       <div class="mode-actions">
-        <button class="btn secondary" type="button" onclick="location.href='index.html'">홈페이지로</button>
         <button class="btn secondary" id="participantModeBtn" type="button">참가자 화면</button>
         <button class="btn gold" id="adminModeBtn" type="button">관리자</button>
       </div>
@@ -672,6 +717,10 @@
             <input id="answerInput" type="text" autocomplete="off" placeholder="정답 입력" />
             <button class="btn" type="submit">제출</button>
           </form>
+          <div id="oxAnswerForm" class="ox-answer hidden">
+            <button class="btn ox-choice" type="button" data-ox-answer="O">O</button>
+            <button class="btn ox-choice" type="button" data-ox-answer="X">X</button>
+          </div>
           <div id="participantResult" class="status hidden"></div>
         </section>
       </div>
@@ -699,7 +748,7 @@
         <section id="profilePanel" class="panel hidden">
           <div class="panel-title">
             <h2>내 정보</h2>
-            <button class="mini-btn" id="changeParticipantBtn" type="button">변경</button>
+            <span class="badge">등록 완료</span>
           </div>
           <div class="stats-grid">
             <div class="stat">
@@ -740,12 +789,26 @@
             <form id="questionForm">
               <div class="grid-two">
                 <div class="field">
+                  <label>문제 유형</label>
+                  <div class="segmented" id="questionTypeGroup">
+                    <button class="segment-btn active" type="button" data-question-type="short">서술형</button>
+                    <button class="segment-btn" type="button" data-question-type="ox">OX</button>
+                  </div>
+                </div>
+                <div class="field">
                   <label for="questionImageInput">PNG 문제 파일</label>
                   <input id="questionImageInput" type="file" accept="image/png" />
                 </div>
-                <div class="field">
+                <div class="field" id="shortAnswerField">
                   <label for="correctAnswerInput">정답</label>
                   <input id="correctAnswerInput" type="text" autocomplete="off" placeholder="예: 12 또는 1/2, 0.5" />
+                </div>
+                <div class="field hidden" id="oxCorrectField">
+                  <label>정답</label>
+                  <div class="segmented">
+                    <button class="segment-btn active" type="button" data-ox-correct="O">O</button>
+                    <button class="segment-btn" type="button" data-ox-correct="X">X</button>
+                  </div>
                 </div>
               </div>
               <div class="mode-actions">
@@ -832,7 +895,878 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import {
+      getDatabase,
+      ref,
+      onValue,
+      set,
+      update,
+      runTransaction
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDK7BJYY28CNXsg8NVQ7ODYgh4noQh0XVc",
+      authDomain: "math-quiz-class.firebaseapp.com",
+      databaseURL: "https://math-quiz-class-default-rtdb.firebaseio.com",
+      projectId: "math-quiz-class",
+      storageBucket: "math-quiz-class.firebasestorage.app",
+      messagingSenderId: "71929750971",
+      appId: "1:71929750971:web:6f942b57c8cae77e14909e",
+      measurementId: "G-YBY3DT6X50"
+    };
+
+    const ROOM_ID = "middle-math-quiz-main";
+    const ROOM_PATH = `rooms/${ROOM_ID}`;
+    const ADMIN_SESSION_KEY = "middleMathQuiz5476Admin";
+    const PARTICIPANT_LOCAL_KEY = "middleMathQuiz5476Participant";
+    const ADMIN_PASSWORD = "5476";
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const roomRef = ref(db, ROOM_PATH);
+
+    const defaultQuiz = () => ({
+      number: 0,
+      type: "short",
+      phase: "waiting",
+      imageData: "",
+      answer: "",
+      createdAt: "",
+      gradedAt: "",
+      correctCount: 0,
+      totalCount: 0,
+      pointValue: 0
+    });
+
+    const defaultState = () => ({
+      participants: {},
+      quiz: defaultQuiz(),
+      submissions: {},
+      history: []
+    });
+
+    let state = defaultState();
+    let currentMode = sessionStorage.getItem(ADMIN_SESSION_KEY) === "1" ? "admin" : "participant";
+    let selectedQuestionType = "short";
+    let selectedOxCorrect = "O";
+    let toastTimer = null;
+
+    const el = {
+      participantCount: document.getElementById("participantCount"),
+      leaderboardList: document.getElementById("leaderboardList"),
+      roundSummary: document.getElementById("roundSummary"),
+      participantModeBtn: document.getElementById("participantModeBtn"),
+      adminModeBtn: document.getElementById("adminModeBtn"),
+      participantView: document.getElementById("participantView"),
+      adminView: document.getElementById("adminView"),
+      joinPanel: document.getElementById("joinPanel"),
+      joinForm: document.getElementById("joinForm"),
+      studentIdInput: document.getElementById("studentIdInput"),
+      studentNameInput: document.getElementById("studentNameInput"),
+      profilePanel: document.getElementById("profilePanel"),
+      profileStudentId: document.getElementById("profileStudentId"),
+      profileName: document.getElementById("profileName"),
+      profileScore: document.getElementById("profileScore"),
+      participantQuizBadge: document.getElementById("participantQuizBadge"),
+      participantQuestionStage: document.getElementById("participantQuestionStage"),
+      answerForm: document.getElementById("answerForm"),
+      answerInput: document.getElementById("answerInput"),
+      oxAnswerForm: document.getElementById("oxAnswerForm"),
+      participantResult: document.getElementById("participantResult"),
+      adminLoginPanel: document.getElementById("adminLoginPanel"),
+      adminLoginForm: document.getElementById("adminLoginForm"),
+      adminPasswordInput: document.getElementById("adminPasswordInput"),
+      adminPanel: document.getElementById("adminPanel"),
+      questionForm: document.getElementById("questionForm"),
+      questionTypeButtons: document.querySelectorAll("[data-question-type]"),
+      questionImageInput: document.getElementById("questionImageInput"),
+      shortAnswerField: document.getElementById("shortAnswerField"),
+      oxCorrectField: document.getElementById("oxCorrectField"),
+      oxCorrectButtons: document.querySelectorAll("[data-ox-correct]"),
+      correctAnswerInput: document.getElementById("correctAnswerInput"),
+      gradeBtn: document.getElementById("gradeBtn"),
+      nextQuestionBtn: document.getElementById("nextQuestionBtn"),
+      adminQuizBadge: document.getElementById("adminQuizBadge"),
+      submittedStat: document.getElementById("submittedStat"),
+      correctStat: document.getElementById("correctStat"),
+      pointStat: document.getElementById("pointStat"),
+      adminQuestionStage: document.getElementById("adminQuestionStage"),
+      submissionCountBadge: document.getElementById("submissionCountBadge"),
+      submissionTableBody: document.getElementById("submissionTableBody"),
+      adminParticipantBadge: document.getElementById("adminParticipantBadge"),
+      participantTableBody: document.getElementById("participantTableBody"),
+      resetScoresBtn: document.getElementById("resetScoresBtn"),
+      clearParticipantsBtn: document.getElementById("clearParticipantsBtn"),
+      resetQuizBtn: document.getElementById("resetQuizBtn"),
+      historyList: document.getElementById("historyList"),
+      toast: document.getElementById("toast")
+    };
+
+    function normalizeState(data) {
+      const base = defaultState();
+      if (!data || typeof data !== "object") return base;
+      const history = Array.isArray(data.history)
+        ? data.history.filter(Boolean)
+        : Object.values(data.history || {}).filter(Boolean);
+
+      return {
+        ...base,
+        ...data,
+        participants: data.participants || {},
+        quiz: { ...defaultQuiz(), ...(data.quiz || {}) },
+        submissions: data.submissions || {},
+        history
+      };
+    }
+
+    function getParticipants() {
+      return Object.values(state.participants || {}).sort((a, b) => {
+        if ((b.score || 0) !== (a.score || 0)) return (b.score || 0) - (a.score || 0);
+        return `${a.studentId}`.localeCompare(`${b.studentId}`, "ko");
+      });
+    }
+
+    function getParticipantKey() {
+      return localStorage.getItem(PARTICIPANT_LOCAL_KEY) || "";
+    }
+
+    function getCurrentParticipant() {
+      const key = getParticipantKey();
+      return key ? state.participants[key] : null;
+    }
+
+    function cleanKey(value) {
+      return String(value || "").trim().replace(/\s+/g, "");
+    }
+
+    function normalizeAnswer(value) {
+      return String(value || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[，、]/g, ",")
+        .replace(/\s+/g, "");
+    }
+
+    function normalizeOx(value) {
+      const normalized = String(value || "").trim().toUpperCase();
+      if (["O", "○", "ㅇ", "TRUE", "T", "맞음", "참"].includes(normalized)) return "O";
+      if (["X", "×", "✕", "FALSE", "F", "틀림", "거짓"].includes(normalized)) return "X";
+      return normalized;
+    }
+
+    function answerVariants(answer) {
+      return String(answer || "")
+        .split(/[,;\n]/)
+        .map(normalizeAnswer)
+        .filter(Boolean);
+    }
+
+    function isCorrectAnswer(studentAnswer, correctAnswer, type) {
+      if (type === "ox") {
+        return normalizeOx(studentAnswer) !== "" && normalizeOx(studentAnswer) === normalizeOx(correctAnswer);
+      }
+      const normalized = normalizeAnswer(studentAnswer);
+      const variants = answerVariants(correctAnswer);
+      return normalized !== "" && variants.includes(normalized);
+    }
+
+    function displayAnswer(answer, type) {
+      return type === "ox" ? normalizeOx(answer) : String(answer || "");
+    }
+
+    function calculatePoint(correctCount, totalCount) {
+      if (correctCount <= 0 || totalCount <= 0) return 0;
+      if (correctCount === 1) return 100;
+      if (correctCount >= totalCount) return 50;
+      return Math.round(100 - ((correctCount - 1) / (totalCount - 1)) * 50);
+    }
+
+    function formatTime(value) {
+      if (!value) return "-";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "-";
+      return date.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+    }
+
+    function escapeText(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function showToast(message) {
+      el.toast.textContent = message;
+      el.toast.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.toast.classList.remove("show"), 2600);
+    }
+
+    function showFirebaseError(error) {
+      console.error(error);
+      showToast("Firebase 저장 또는 연결 권한을 확인해 주세요.");
+    }
+
+    function setBadge(node, phase, number) {
+      node.className = "badge";
+      if (phase === "open") {
+        node.classList.add("open");
+        node.textContent = `${number}번 진행 중`;
+      } else if (phase === "graded") {
+        node.classList.add("graded");
+        node.textContent = `${number}번 채점 완료`;
+      } else {
+        node.classList.add("waiting");
+        node.textContent = "대기";
+      }
+    }
+
+    function setQuestionType(type) {
+      selectedQuestionType = type === "ox" ? "ox" : "short";
+      el.questionTypeButtons.forEach(button => {
+        button.classList.toggle("active", button.dataset.questionType === selectedQuestionType);
+      });
+      el.shortAnswerField.classList.toggle("hidden", selectedQuestionType === "ox");
+      el.oxCorrectField.classList.toggle("hidden", selectedQuestionType !== "ox");
+    }
+
+    function setOxCorrect(value) {
+      selectedOxCorrect = normalizeOx(value) === "X" ? "X" : "O";
+      el.oxCorrectButtons.forEach(button => {
+        button.classList.toggle("active", button.dataset.oxCorrect === selectedOxCorrect);
+      });
+    }
+
+    function renderQuestionStage(node) {
+      if (state.quiz.imageData) {
+        const typeLabel = state.quiz.type === "ox" ? "OX" : "서술형";
+        node.innerHTML = `<img src="${state.quiz.imageData}" alt="${state.quiz.number}번 ${typeLabel} 수학 문제" />`;
+        return;
+      }
+      node.innerHTML = `<div class="question-empty">아직 출제된 문제가 없습니다.</div>`;
+    }
+
+    function renderLeaderboard() {
+      const participants = getParticipants();
+      el.participantCount.textContent = `${participants.length}명`;
+      const topTen = participants.slice(0, 10);
+      if (topTen.length === 0) {
+        el.leaderboardList.innerHTML = `<p class="empty-rank">참가자가 등록되면 여기에 점수가 표시됩니다.</p>`;
+        return;
+      }
+      el.leaderboardList.innerHTML = topTen.map((participant, index) => `
+        <div class="rank-row">
+          <div class="rank-number">${index + 1}</div>
+          <div class="rank-name">
+            <strong>${escapeText(participant.name)}</strong>
+            <span>${escapeText(participant.studentId)}</span>
+          </div>
+          <div class="rank-score">${participant.score || 0}</div>
+        </div>
+      `).join("");
+    }
+
+    function renderHeader() {
+      const quiz = state.quiz;
+      const typeLabel = quiz.type === "ox" ? "OX" : "서술형";
+      if (quiz.phase === "open") {
+        el.roundSummary.textContent = `${quiz.number}번 ${typeLabel} 문제 진행 중 · 제출 ${Object.keys(state.submissions).length}명`;
+      } else if (quiz.phase === "graded") {
+        el.roundSummary.textContent = `${quiz.number}번 채점 완료 · 정답 ${quiz.correctCount}/${quiz.totalCount}명 · +${quiz.pointValue}점`;
+      } else {
+        el.roundSummary.textContent = "대기 중";
+      }
+    }
+
+    function renderMode() {
+      const isAdminMode = currentMode === "admin";
+      el.participantView.classList.toggle("hidden", isAdminMode);
+      el.adminView.classList.toggle("hidden", !isAdminMode);
+      el.participantModeBtn.classList.toggle("secondary", isAdminMode);
+      el.adminModeBtn.classList.toggle("secondary", !isAdminMode);
+      el.adminModeBtn.classList.toggle("gold", isAdminMode);
+    }
+
+    function renderParticipant() {
+      const participant = getCurrentParticipant();
+      const localKey = getParticipantKey();
+      const staleLocalKey = localKey && !participant;
+
+      el.joinPanel.classList.toggle("hidden", Boolean(participant));
+      el.profilePanel.classList.toggle("hidden", !participant);
+
+      if (participant) {
+        el.profileStudentId.textContent = participant.studentId;
+        el.profileName.textContent = participant.name;
+        el.profileScore.textContent = participant.score || 0;
+      } else if (staleLocalKey) {
+        localStorage.removeItem(PARTICIPANT_LOCAL_KEY);
+      }
+
+      setBadge(el.participantQuizBadge, state.quiz.phase, state.quiz.number);
+      renderQuestionStage(el.participantQuestionStage);
+
+      const submission = participant ? state.submissions[participant.key] : null;
+      const isOx = state.quiz.type === "ox";
+      const canAnswer = participant && state.quiz.phase === "open" && state.quiz.imageData;
+      el.answerForm.classList.toggle("hidden", !canAnswer || isOx);
+      el.oxAnswerForm.classList.toggle("hidden", !canAnswer || !isOx);
+      el.participantResult.classList.add("hidden", "good", "bad", "gold");
+      el.participantResult.textContent = "";
+
+      el.oxAnswerForm.querySelectorAll("[data-ox-answer]").forEach(button => {
+        button.classList.toggle("selected", Boolean(submission) && normalizeOx(submission.answer) === button.dataset.oxAnswer);
+      });
+
+      if (!participant) {
+        el.answerForm.classList.add("hidden");
+        el.oxAnswerForm.classList.add("hidden");
+        el.participantResult.classList.remove("hidden");
+        el.participantResult.textContent = "학번과 이름을 등록하면 답안을 제출할 수 있습니다.";
+        return;
+      }
+
+      if (canAnswer) {
+        if (isOx) {
+          if (submission) {
+            el.participantResult.classList.remove("hidden");
+            el.participantResult.classList.add("gold");
+            el.participantResult.textContent = `제출한 답안: ${displayAnswer(submission.answer, "ox")}`;
+          }
+          return;
+        }
+
+        el.answerInput.value = submission ? submission.answer : "";
+        const submitButton = el.answerForm.querySelector("button");
+        submitButton.textContent = submission ? "수정" : "제출";
+        if (submission) {
+          el.participantResult.classList.remove("hidden");
+          el.participantResult.classList.add("gold");
+          el.participantResult.textContent = `제출한 답안: ${submission.answer}`;
+        }
+        return;
+      }
+
+      if (state.quiz.phase === "graded" && submission) {
+        el.participantResult.classList.remove("hidden");
+        if (submission.correct) {
+          el.participantResult.classList.add("good");
+          el.participantResult.textContent = `정답입니다. +${submission.awarded}점이 반영되었습니다.`;
+        } else {
+          el.participantResult.classList.add("bad");
+          el.participantResult.textContent = `오답입니다. 정답: ${displayAnswer(state.quiz.answer, state.quiz.type)}`;
+        }
+      } else if (state.quiz.phase === "graded") {
+        el.participantResult.classList.remove("hidden");
+        el.participantResult.classList.add("bad");
+        el.participantResult.textContent = `미제출입니다. 정답: ${displayAnswer(state.quiz.answer, state.quiz.type)}`;
+      } else {
+        el.participantResult.classList.remove("hidden");
+        el.participantResult.textContent = "관리자가 다음 문제를 출제하면 이곳에 표시됩니다.";
+      }
+    }
+
+    function renderAdminGate() {
+      const isAdmin = sessionStorage.getItem(ADMIN_SESSION_KEY) === "1";
+      el.adminLoginPanel.classList.toggle("hidden", isAdmin);
+      el.adminPanel.classList.toggle("hidden", !isAdmin);
+    }
+
+    function renderAdminQuestion() {
+      setBadge(el.adminQuizBadge, state.quiz.phase, state.quiz.number);
+      renderQuestionStage(el.adminQuestionStage);
+
+      const submissionCount = Object.keys(state.submissions).length;
+      el.submittedStat.textContent = submissionCount;
+      el.correctStat.textContent = state.quiz.phase === "graded" ? state.quiz.correctCount : "-";
+      el.pointStat.textContent = state.quiz.phase === "graded" ? state.quiz.pointValue : "-";
+      el.submissionCountBadge.textContent = `${submissionCount}개`;
+      el.gradeBtn.disabled = state.quiz.phase !== "open";
+
+      if (state.quiz.phase !== "waiting") {
+        setQuestionType(state.quiz.type);
+        if (state.quiz.type === "ox") {
+          setOxCorrect(state.quiz.answer);
+        } else {
+          el.correctAnswerInput.value = state.quiz.answer || "";
+        }
+      } else {
+        setQuestionType(selectedQuestionType);
+        setOxCorrect(selectedOxCorrect);
+      }
+    }
+
+    function renderSubmissions() {
+      const participants = getParticipants().sort((a, b) => `${a.studentId}`.localeCompare(`${b.studentId}`, "ko"));
+      if (participants.length === 0) {
+        el.submissionTableBody.innerHTML = `
+          <tr>
+            <td colspan="5">등록된 참가자가 없습니다.</td>
+          </tr>
+        `;
+        return;
+      }
+
+      el.submissionTableBody.innerHTML = participants.map(participant => {
+        const submission = state.submissions[participant.key];
+        let result = `<span class="pill">대기</span>`;
+        let awarded = "-";
+        if (state.quiz.phase === "graded") {
+          if (submission && submission.correct) {
+            result = `<span class="pill good">정답</span>`;
+            awarded = `+${submission.awarded}`;
+          } else {
+            result = `<span class="pill bad">${submission ? "오답" : "미제출"}</span>`;
+            awarded = "0";
+          }
+        } else if (submission) {
+          result = `<span class="pill good">${formatTime(submission.submittedAt)}</span>`;
+        }
+
+        return `
+          <tr>
+            <td>${escapeText(participant.studentId)}</td>
+            <td>${escapeText(participant.name)}</td>
+            <td>${submission ? escapeText(displayAnswer(submission.answer, state.quiz.type)) : "-"}</td>
+            <td>${result}</td>
+            <td>${awarded}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function renderParticipantsTable() {
+      const participants = getParticipants().sort((a, b) => `${a.studentId}`.localeCompare(`${b.studentId}`, "ko"));
+      el.adminParticipantBadge.textContent = `${participants.length}명`;
+      if (participants.length === 0) {
+        el.participantTableBody.innerHTML = `
+          <tr>
+            <td colspan="4">등록된 참가자가 없습니다.</td>
+          </tr>
+        `;
+        return;
+      }
+
+      el.participantTableBody.innerHTML = participants.map(participant => `
+        <tr>
+          <td>${escapeText(participant.studentId)}</td>
+          <td>${escapeText(participant.name)}</td>
+          <td>${participant.score || 0}</td>
+          <td>
+            <div class="table-actions">
+              <button class="mini-btn" type="button" data-action="zero-score" data-key="${escapeText(participant.key)}">0점</button>
+              <button class="mini-btn danger" type="button" data-action="remove" data-key="${escapeText(participant.key)}">삭제</button>
+            </div>
+          </td>
+        </tr>
+      `).join("");
+    }
+
+    function renderHistory() {
+      if (!state.history.length) {
+        el.historyList.innerHTML = `<div class="status">아직 채점 기록이 없습니다.</div>`;
+        return;
+      }
+
+      el.historyList.innerHTML = state.history.slice(-8).reverse().map(item => `
+        <div class="history-item">
+          <strong>${item.number}번</strong>
+          <span>${item.type === "ox" ? "OX" : "서술형"} · 정답 ${escapeText(displayAnswer(item.answer, item.type))} · ${item.correctCount}/${item.totalCount}명</span>
+          <strong>+${item.pointValue}</strong>
+        </div>
+      `).join("");
+    }
+
+    function renderAdmin() {
+      renderAdminGate();
+      renderAdminQuestion();
+      renderSubmissions();
+      renderParticipantsTable();
+      renderHistory();
+    }
+
+    function render() {
+      renderLeaderboard();
+      renderHeader();
+      renderMode();
+      renderParticipant();
+      renderAdmin();
+    }
+
+    function readPngAsDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        if (!file) {
+          reject(new Error("PNG 파일을 선택해 주세요."));
+          return;
+        }
+        if (file.type !== "image/png") {
+          reject(new Error("PNG 파일만 사용할 수 있습니다."));
+          return;
+        }
+        if (file.size > 3 * 1024 * 1024) {
+          reject(new Error("문제 이미지는 3MB 이하 PNG를 권장합니다."));
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error("이미지를 읽지 못했습니다."));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function submitAnswer(answerValue) {
+      const participant = getCurrentParticipant();
+      if (!participant) {
+        showToast("참가 등록을 먼저 해 주세요.");
+        return;
+      }
+      if (state.quiz.phase !== "open") {
+        showToast("현재 제출 가능한 문제가 없습니다.");
+        return;
+      }
+
+      const answer = state.quiz.type === "ox" ? normalizeOx(answerValue) : String(answerValue || "").trim();
+      if (!answer || (state.quiz.type === "ox" && !["O", "X"].includes(answer))) {
+        showToast("정답을 입력해 주세요.");
+        return;
+      }
+
+      try {
+        await set(ref(db, `${ROOM_PATH}/submissions/${participant.key}`), {
+          participantKey: participant.key,
+          answer,
+          submittedAt: new Date().toISOString(),
+          correct: null,
+          awarded: 0
+        });
+        showToast("답안이 제출되었습니다.");
+      } catch (error) {
+        showFirebaseError(error);
+      }
+    }
+
+    el.participantModeBtn.addEventListener("click", () => {
+      currentMode = "participant";
+      render();
+    });
+
+    el.adminModeBtn.addEventListener("click", () => {
+      currentMode = "admin";
+      render();
+    });
+
+    el.questionTypeButtons.forEach(button => {
+      button.addEventListener("click", () => setQuestionType(button.dataset.questionType));
+    });
+
+    el.oxCorrectButtons.forEach(button => {
+      button.addEventListener("click", () => setOxCorrect(button.dataset.oxCorrect));
+    });
+
+    el.joinForm.addEventListener("submit", async event => {
+      event.preventDefault();
+      const existingLocalKey = getParticipantKey();
+      if (existingLocalKey && state.participants[existingLocalKey]) {
+        showToast("이미 이 기기에서 참가 등록이 완료되었습니다.");
+        return;
+      }
+
+      const studentId = el.studentIdInput.value.trim();
+      const name = el.studentNameInput.value.trim();
+      const key = cleanKey(studentId);
+
+      if (!key || !name) {
+        showToast("학번과 이름을 입력해 주세요.");
+        return;
+      }
+
+      try {
+        const participantRef = ref(db, `${ROOM_PATH}/participants/${key}`);
+        const result = await runTransaction(participantRef, current => {
+          if (current) return;
+          return {
+            key,
+            studentId,
+            name,
+            score: 0,
+            joinedAt: new Date().toISOString()
+          };
+        });
+
+        if (!result.committed) {
+          showToast("이미 등록된 학번입니다.");
+          return;
+        }
+
+        localStorage.setItem(PARTICIPANT_LOCAL_KEY, key);
+        el.studentIdInput.value = "";
+        el.studentNameInput.value = "";
+        showToast(`${name} 참가 등록 완료`);
+      } catch (error) {
+        showFirebaseError(error);
+      }
+    });
+
+    el.answerForm.addEventListener("submit", event => {
+      event.preventDefault();
+      submitAnswer(el.answerInput.value);
+    });
+
+    el.oxAnswerForm.addEventListener("click", event => {
+      const button = event.target.closest("[data-ox-answer]");
+      if (!button) return;
+      submitAnswer(button.dataset.oxAnswer);
+    });
+
+    el.adminLoginForm.addEventListener("submit", event => {
+      event.preventDefault();
+      if (el.adminPasswordInput.value === ADMIN_PASSWORD) {
+        sessionStorage.setItem(ADMIN_SESSION_KEY, "1");
+        el.adminPasswordInput.value = "";
+        currentMode = "admin";
+        showToast("관리자로 입장했습니다.");
+        render();
+      } else {
+        showToast("암호가 맞지 않습니다.");
+      }
+    });
+
+    el.questionForm.addEventListener("submit", async event => {
+      event.preventDefault();
+
+      try {
+        const type = selectedQuestionType;
+        const answer = type === "ox" ? selectedOxCorrect : el.correctAnswerInput.value.trim();
+        if (!answer) {
+          showToast("정답을 입력해 주세요.");
+          return;
+        }
+        if (state.quiz.phase === "open" && Object.keys(state.submissions).length > 0) {
+          const proceed = confirm("진행 중인 문제와 제출 답안이 사라집니다. 새 문제를 출제할까요?");
+          if (!proceed) return;
+        }
+
+        const imageData = await readPngAsDataUrl(el.questionImageInput.files[0]);
+        const newQuiz = {
+          ...defaultQuiz(),
+          number: (state.quiz.number || 0) + 1,
+          type,
+          phase: "open",
+          imageData,
+          answer,
+          createdAt: new Date().toISOString()
+        };
+
+        await update(roomRef, {
+          quiz: newQuiz,
+          submissions: null
+        });
+
+        el.questionImageInput.value = "";
+        showToast("문제가 출제되었습니다.");
+      } catch (error) {
+        showToast(error.message || "문제를 출제하지 못했습니다.");
+      }
+    });
+
+    el.gradeBtn.addEventListener("click", async () => {
+      if (state.quiz.phase !== "open") {
+        showToast("채점할 문제가 없습니다.");
+        return;
+      }
+
+      const overrideAnswer = state.quiz.type === "ox"
+        ? selectedOxCorrect
+        : (el.correctAnswerInput.value.trim() || state.quiz.answer);
+
+      if (!overrideAnswer) {
+        showToast("정답을 입력해 주세요.");
+        return;
+      }
+
+      try {
+        const result = await runTransaction(roomRef, current => {
+          if (!current) return current;
+          const nextState = normalizeState(current);
+          if (nextState.quiz.phase !== "open") return current;
+
+          const type = nextState.quiz.type === "ox" ? "ox" : "short";
+          const answer = type === "ox" ? normalizeOx(overrideAnswer) : overrideAnswer;
+          const participants = Object.values(nextState.participants || {});
+          const totalCount = participants.length;
+          const results = participants.map(participant => {
+            const submission = nextState.submissions[participant.key];
+            const correct = submission ? isCorrectAnswer(submission.answer, answer, type) : false;
+            return { participant, submission, correct };
+          });
+          const correctCount = results.filter(item => item.correct).length;
+          const pointValue = calculatePoint(correctCount, totalCount);
+
+          results.forEach(item => {
+            if (!item.submission) {
+              nextState.submissions[item.participant.key] = {
+                participantKey: item.participant.key,
+                answer: "",
+                submittedAt: "",
+                correct: false,
+                awarded: 0
+              };
+              return;
+            }
+
+            item.submission.correct = item.correct;
+            item.submission.awarded = item.correct ? pointValue : 0;
+            if (item.correct) {
+              item.participant.score = (item.participant.score || 0) + pointValue;
+            }
+          });
+
+          nextState.quiz.answer = answer;
+          nextState.quiz.phase = "graded";
+          nextState.quiz.gradedAt = new Date().toISOString();
+          nextState.quiz.correctCount = correctCount;
+          nextState.quiz.totalCount = totalCount;
+          nextState.quiz.pointValue = pointValue;
+          nextState.history.push({
+            number: nextState.quiz.number,
+            type,
+            answer,
+            correctCount,
+            totalCount,
+            pointValue,
+            gradedAt: nextState.quiz.gradedAt
+          });
+          return nextState;
+        });
+
+        if (result.committed) {
+          showToast("채점과 점수 반영이 완료되었습니다.");
+        } else {
+          showToast("채점이 반영되지 않았습니다. 다시 시도해 주세요.");
+        }
+      } catch (error) {
+        showFirebaseError(error);
+      }
+    });
+
+    el.nextQuestionBtn.addEventListener("click", async () => {
+      if (state.quiz.phase === "open" && Object.keys(state.submissions).length > 0) {
+        const proceed = confirm("아직 채점하지 않은 답안이 있습니다. 다음 문제로 넘어갈까요?");
+        if (!proceed) return;
+      }
+
+      try {
+        await update(roomRef, {
+          quiz: {
+            ...defaultQuiz(),
+            number: state.quiz.number || 0,
+            phase: "waiting"
+          },
+          submissions: null
+        });
+        el.correctAnswerInput.value = "";
+        el.questionImageInput.value = "";
+        showToast("다음 문제를 준비합니다.");
+      } catch (error) {
+        showFirebaseError(error);
+      }
+    });
+
+    el.resetScoresBtn.addEventListener("click", async () => {
+      const proceed = confirm("모든 참가자의 점수를 0점으로 바꿀까요?");
+      if (!proceed) return;
+
+      try {
+        await runTransaction(ref(db, `${ROOM_PATH}/participants`), participants => {
+          if (!participants) return participants;
+          Object.values(participants).forEach(participant => {
+            participant.score = 0;
+          });
+          return participants;
+        });
+        showToast("점수가 초기화되었습니다.");
+      } catch (error) {
+        showFirebaseError(error);
+      }
+    });
+
+    el.clearParticipantsBtn.addEventListener("click", async () => {
+      const proceed = confirm("모든 참가자를 삭제할까요?");
+      if (!proceed) return;
+
+      try {
+        await update(roomRef, {
+          participants: null,
+          submissions: null
+        });
+        showToast("참가자가 삭제되었습니다.");
+      } catch (error) {
+        showFirebaseError(error);
+      }
+    });
+
+    el.resetQuizBtn.addEventListener("click", async () => {
+      const proceed = confirm("현재 문제와 채점 기록을 초기화할까요?");
+      if (!proceed) return;
+
+      try {
+        await update(roomRef, {
+          quiz: defaultQuiz(),
+          submissions: null,
+          history: null
+        });
+        showToast("퀴즈가 초기화되었습니다.");
+      } catch (error) {
+        showFirebaseError(error);
+      }
+    });
+
+    el.participantTableBody.addEventListener("click", async event => {
+      const button = event.target.closest("button[data-action]");
+      if (!button) return;
+      const action = button.dataset.action;
+      const key = button.dataset.key;
+      const participant = state.participants[key];
+      if (!participant) return;
+
+      try {
+        if (action === "zero-score") {
+          await update(ref(db, `${ROOM_PATH}/participants/${key}`), { score: 0 });
+          showToast(`${participant.name} 점수를 초기화했습니다.`);
+        }
+
+        if (action === "remove") {
+          const proceed = confirm(`${participant.name} 참가자를 삭제할까요?`);
+          if (!proceed) return;
+          await update(roomRef, {
+            [`participants/${key}`]: null,
+            [`submissions/${key}`]: null
+          });
+          showToast("참가자를 삭제했습니다.");
+        }
+      } catch (error) {
+        showFirebaseError(error);
+      }
+    });
+
+    onValue(roomRef, snapshot => {
+      state = normalizeState(snapshot.val());
+      if (!snapshot.exists()) {
+        set(roomRef, state).catch(showFirebaseError);
+      }
+      render();
+    }, showFirebaseError);
+
+    setQuestionType("short");
+    setOxCorrect("O");
+    render();
+  </script>
+
+  <script type="text/plain" id="legacy-local-script-disabled">
     const STORAGE_KEY = "middleMathQuiz5476State";
     const ADMIN_SESSION_KEY = "middleMathQuiz5476Admin";
     const PARTICIPANT_SESSION_KEY = "middleMathQuiz5476Participant";
