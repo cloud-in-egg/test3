@@ -1,0 +1,1550 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>중1 수학 퀴즈</title>
+  <style>
+    :root {
+      --bg: #f6f8f3;
+      --surface: #ffffff;
+      --surface-soft: #f0f7f4;
+      --ink: #17211f;
+      --muted: #63706c;
+      --line: #d8e2dc;
+      --primary: #147a6c;
+      --primary-dark: #0e5c51;
+      --coral: #e85d75;
+      --gold: #f4b942;
+      --good: #168a4a;
+      --bad: #cf3548;
+      --shadow: 0 18px 42px rgba(23, 33, 31, 0.12);
+      --radius: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+      color: var(--ink);
+      background:
+        linear-gradient(135deg, rgba(20, 122, 108, 0.10), transparent 34%),
+        linear-gradient(315deg, rgba(244, 185, 66, 0.16), transparent 36%),
+        var(--bg);
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+      border-radius: var(--radius);
+      font-weight: 800;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+      transform: none;
+    }
+
+    input[type="text"],
+    input[type="password"],
+    input[type="file"] {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+      color: var(--ink);
+      padding: 12px 13px;
+      outline: none;
+    }
+
+    input[type="file"] {
+      padding: 10px;
+    }
+
+    input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(20, 122, 108, 0.14);
+    }
+
+    .leaderboard {
+      position: fixed;
+      top: 18px;
+      left: 18px;
+      width: 268px;
+      max-height: calc(100vh - 36px);
+      overflow: auto;
+      z-index: 20;
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid rgba(216, 226, 220, 0.9);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px;
+    }
+
+    .leaderboard h2 {
+      margin: 0 0 10px;
+      font-size: 18px;
+      letter-spacing: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .leaderboard small {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .rank-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .rank-row {
+      display: grid;
+      grid-template-columns: 30px 1fr auto;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 10px;
+      border-radius: var(--radius);
+      background: var(--surface-soft);
+      min-width: 0;
+    }
+
+    .rank-row:nth-child(1) {
+      background: rgba(244, 185, 66, 0.28);
+    }
+
+    .rank-row:nth-child(2) {
+      background: rgba(20, 122, 108, 0.16);
+    }
+
+    .rank-row:nth-child(3) {
+      background: rgba(232, 93, 117, 0.14);
+    }
+
+    .rank-number {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: #fff;
+      color: var(--primary-dark);
+      font-weight: 900;
+      font-size: 13px;
+    }
+
+    .rank-name {
+      min-width: 0;
+    }
+
+    .rank-name strong,
+    .rank-name span {
+      display: block;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .rank-name strong {
+      font-size: 14px;
+    }
+
+    .rank-name span {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 2px;
+    }
+
+    .rank-score {
+      font-size: 16px;
+      font-weight: 900;
+      color: var(--primary-dark);
+      white-space: nowrap;
+    }
+
+    .empty-rank {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+      background: var(--surface-soft);
+      border-radius: var(--radius);
+      padding: 12px;
+    }
+
+    .page {
+      width: min(1180px, calc(100% - 340px));
+      margin: 0 20px 0 320px;
+      padding: 26px 0 50px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .brand {
+      min-width: 0;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: clamp(28px, 4vw, 44px);
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+
+    .brand p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .mode-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .btn {
+      min-height: 42px;
+      padding: 0 16px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: #fff;
+      background: var(--primary);
+      box-shadow: 0 10px 22px rgba(20, 122, 108, 0.2);
+    }
+
+    .btn.secondary {
+      color: var(--ink);
+      background: #fff;
+      border: 1px solid var(--line);
+      box-shadow: none;
+    }
+
+    .btn.warning {
+      background: var(--coral);
+      box-shadow: 0 10px 22px rgba(232, 93, 117, 0.22);
+    }
+
+    .btn.gold {
+      color: #2b2410;
+      background: var(--gold);
+      box-shadow: 0 10px 22px rgba(244, 185, 66, 0.24);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.85fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .panel {
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid rgba(216, 226, 220, 0.9);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px;
+      min-width: 0;
+    }
+
+    .panel + .panel {
+      margin-top: 18px;
+    }
+
+    .panel-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .panel-title h2 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: 0;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 30px;
+      padding: 0 10px;
+      border-radius: 999px;
+      background: var(--surface-soft);
+      color: var(--primary-dark);
+      font-size: 13px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .badge.open {
+      background: rgba(244, 185, 66, 0.28);
+      color: #6b4c00;
+    }
+
+    .badge.graded {
+      background: rgba(22, 138, 74, 0.14);
+      color: var(--good);
+    }
+
+    .badge.waiting {
+      background: rgba(232, 93, 117, 0.12);
+      color: var(--coral);
+    }
+
+    .grid-two {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .field {
+      display: grid;
+      gap: 7px;
+      margin-bottom: 12px;
+    }
+
+    .field label {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .field.full {
+      grid-column: 1 / -1;
+    }
+
+    .status {
+      border-radius: var(--radius);
+      background: var(--surface-soft);
+      border: 1px solid rgba(216, 226, 220, 0.9);
+      padding: 12px 13px;
+      color: var(--muted);
+      font-weight: 800;
+      line-height: 1.5;
+    }
+
+    .status.good {
+      background: rgba(22, 138, 74, 0.12);
+      color: var(--good);
+      border-color: rgba(22, 138, 74, 0.25);
+    }
+
+    .status.bad {
+      background: rgba(207, 53, 72, 0.10);
+      color: var(--bad);
+      border-color: rgba(207, 53, 72, 0.22);
+    }
+
+    .status.gold {
+      background: rgba(244, 185, 66, 0.22);
+      color: #6b4c00;
+      border-color: rgba(244, 185, 66, 0.34);
+    }
+
+    .question-stage {
+      min-height: 430px;
+      border: 1px dashed rgba(20, 122, 108, 0.35);
+      border-radius: var(--radius);
+      background:
+        linear-gradient(45deg, rgba(20, 122, 108, 0.06), transparent),
+        #fff;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      padding: 18px;
+    }
+
+    .question-stage img {
+      width: 100%;
+      height: auto;
+      max-height: 72vh;
+      object-fit: contain;
+      display: block;
+      border-radius: var(--radius);
+    }
+
+    .question-empty {
+      text-align: center;
+      color: var(--muted);
+      font-weight: 800;
+      line-height: 1.6;
+    }
+
+    .answer-box {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .answer-box .btn {
+      min-width: 120px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin: 14px 0;
+    }
+
+    .stat {
+      background: var(--surface-soft);
+      border-radius: var(--radius);
+      padding: 14px;
+      min-width: 0;
+    }
+
+    .stat span {
+      display: block;
+      color: var(--muted);
+      font-weight: 900;
+      font-size: 12px;
+      margin-bottom: 5px;
+    }
+
+    .stat strong {
+      font-size: 24px;
+      line-height: 1;
+      color: var(--primary-dark);
+    }
+
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .wide-table {
+      min-width: 620px;
+    }
+
+    th,
+    td {
+      text-align: left;
+      padding: 10px 11px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: middle;
+      font-size: 14px;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 900;
+      background: var(--surface-soft);
+      white-space: nowrap;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .table-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .mini-btn {
+      min-height: 30px;
+      padding: 0 10px;
+      background: var(--surface-soft);
+      color: var(--primary-dark);
+      border: 1px solid rgba(20, 122, 108, 0.22);
+      font-size: 12px;
+      box-shadow: none;
+    }
+
+    .mini-btn.danger {
+      color: var(--bad);
+      background: rgba(207, 53, 72, 0.08);
+      border-color: rgba(207, 53, 72, 0.24);
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      padding: 0 9px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 900;
+      background: var(--surface-soft);
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .pill.good {
+      background: rgba(22, 138, 74, 0.12);
+      color: var(--good);
+    }
+
+    .pill.bad {
+      background: rgba(207, 53, 72, 0.10);
+      color: var(--bad);
+    }
+
+    .history-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .history-item {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 10px;
+      align-items: center;
+      border-radius: var(--radius);
+      background: var(--surface-soft);
+      padding: 10px;
+      min-width: 0;
+    }
+
+    .history-item strong,
+    .history-item span {
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .toast {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      z-index: 40;
+      max-width: min(420px, calc(100% - 36px));
+      border-radius: var(--radius);
+      background: #17211f;
+      color: #fff;
+      padding: 13px 15px;
+      box-shadow: var(--shadow);
+      font-weight: 800;
+      line-height: 1.45;
+      opacity: 0;
+      transform: translateY(12px);
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    @media (max-width: 1120px) {
+      .leaderboard {
+        position: static;
+        width: min(100% - 40px, 980px);
+        max-height: none;
+        margin: 18px auto 0;
+      }
+
+      .page {
+        margin-left: auto;
+        width: min(980px, calc(100% - 40px));
+        padding-top: 18px;
+      }
+    }
+
+    @media (max-width: 820px) {
+      .topbar,
+      .layout,
+      .grid-two,
+      .answer-box,
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .topbar {
+        display: grid;
+      }
+
+      .mode-actions {
+        justify-content: stretch;
+      }
+
+      .mode-actions .btn,
+      .answer-box .btn {
+        width: 100%;
+      }
+
+      .question-stage {
+        min-height: 300px;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .leaderboard,
+      .page {
+        width: calc(100% - 24px);
+      }
+
+      .panel {
+        padding: 15px;
+      }
+
+      .brand h1 {
+        font-size: 30px;
+      }
+
+      .rank-row {
+        grid-template-columns: 28px 1fr auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <aside class="leaderboard" aria-label="상위 10명 점수판">
+    <h2>상위 10명 <small id="participantCount">0명</small></h2>
+    <div id="leaderboardList" class="rank-list"></div>
+  </aside>
+
+  <main class="page">
+    <header class="topbar">
+      <div class="brand">
+        <h1>중1 수학 퀴즈</h1>
+        <p id="roundSummary">대기 중</p>
+      </div>
+      <div class="mode-actions">
+        <button class="btn secondary" id="participantModeBtn" type="button">참가자 화면</button>
+        <button class="btn gold" id="adminModeBtn" type="button">관리자</button>
+      </div>
+    </header>
+
+    <section id="participantView" class="layout">
+      <div>
+        <section class="panel">
+          <div class="panel-title">
+            <h2>문제</h2>
+            <span id="participantQuizBadge" class="badge waiting">대기</span>
+          </div>
+          <div id="participantQuestionStage" class="question-stage"></div>
+          <form id="answerForm" class="answer-box hidden">
+            <input id="answerInput" type="text" autocomplete="off" placeholder="정답 입력" />
+            <button class="btn" type="submit">제출</button>
+          </form>
+          <div id="participantResult" class="status hidden"></div>
+        </section>
+      </div>
+
+      <aside>
+        <section id="joinPanel" class="panel">
+          <div class="panel-title">
+            <h2>참가 등록</h2>
+          </div>
+          <form id="joinForm">
+            <div class="grid-two">
+              <div class="field">
+                <label for="studentIdInput">학번</label>
+                <input id="studentIdInput" type="text" autocomplete="off" required />
+              </div>
+              <div class="field">
+                <label for="studentNameInput">이름</label>
+                <input id="studentNameInput" type="text" autocomplete="off" required />
+              </div>
+            </div>
+            <button class="btn" type="submit">참가하기</button>
+          </form>
+        </section>
+
+        <section id="profilePanel" class="panel hidden">
+          <div class="panel-title">
+            <h2>내 정보</h2>
+            <button class="mini-btn" id="changeParticipantBtn" type="button">변경</button>
+          </div>
+          <div class="stats-grid">
+            <div class="stat">
+              <span>학번</span>
+              <strong id="profileStudentId">-</strong>
+            </div>
+            <div class="stat">
+              <span>이름</span>
+              <strong id="profileName">-</strong>
+            </div>
+            <div class="stat">
+              <span>점수</span>
+              <strong id="profileScore">0</strong>
+            </div>
+          </div>
+        </section>
+      </aside>
+    </section>
+
+    <section id="adminView" class="hidden">
+      <div id="adminLoginPanel" class="panel">
+        <div class="panel-title">
+          <h2>관리자 입장</h2>
+        </div>
+        <form id="adminLoginForm" class="answer-box">
+          <input id="adminPasswordInput" type="password" autocomplete="off" placeholder="암호" />
+          <button class="btn gold" type="submit">입장</button>
+        </form>
+      </div>
+
+      <div id="adminPanel" class="layout hidden">
+        <div>
+          <section class="panel">
+            <div class="panel-title">
+              <h2>문제 출제</h2>
+              <span id="adminQuizBadge" class="badge waiting">대기</span>
+            </div>
+            <form id="questionForm">
+              <div class="grid-two">
+                <div class="field">
+                  <label for="questionImageInput">PNG 문제 파일</label>
+                  <input id="questionImageInput" type="file" accept="image/png" />
+                </div>
+                <div class="field">
+                  <label for="correctAnswerInput">정답</label>
+                  <input id="correctAnswerInput" type="text" autocomplete="off" placeholder="예: 12 또는 1/2, 0.5" />
+                </div>
+              </div>
+              <div class="mode-actions">
+                <button class="btn" type="submit">문제 출제</button>
+                <button class="btn gold" id="gradeBtn" type="button">채점 및 점수 반영</button>
+                <button class="btn secondary" id="nextQuestionBtn" type="button">다음 문제</button>
+              </div>
+            </form>
+            <div class="stats-grid">
+              <div class="stat">
+                <span>제출</span>
+                <strong id="submittedStat">0</strong>
+              </div>
+              <div class="stat">
+                <span>정답</span>
+                <strong id="correctStat">0</strong>
+              </div>
+              <div class="stat">
+                <span>배점</span>
+                <strong id="pointStat">0</strong>
+              </div>
+            </div>
+            <div id="adminQuestionStage" class="question-stage"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-title">
+              <h2>답안 현황</h2>
+              <span id="submissionCountBadge" class="badge">0개</span>
+            </div>
+            <div class="table-wrap">
+              <table class="wide-table">
+                <thead>
+                  <tr>
+                    <th>학번</th>
+                    <th>이름</th>
+                    <th>답안</th>
+                    <th>결과</th>
+                    <th>획득</th>
+                  </tr>
+                </thead>
+                <tbody id="submissionTableBody"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <aside>
+          <section class="panel">
+            <div class="panel-title">
+              <h2>참가자 관리</h2>
+              <span id="adminParticipantBadge" class="badge">0명</span>
+            </div>
+            <div class="mode-actions" style="justify-content: stretch; margin-bottom: 12px;">
+              <button class="btn secondary" id="resetScoresBtn" type="button">점수 초기화</button>
+              <button class="btn warning" id="clearParticipantsBtn" type="button">참가자 삭제</button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>학번</th>
+                    <th>이름</th>
+                    <th>점수</th>
+                    <th>관리</th>
+                  </tr>
+                </thead>
+                <tbody id="participantTableBody"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-title">
+              <h2>기록</h2>
+              <button class="mini-btn danger" id="resetQuizBtn" type="button">퀴즈 초기화</button>
+            </div>
+            <div id="historyList" class="history-list"></div>
+          </section>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const STORAGE_KEY = "middleMathQuiz5476State";
+    const ADMIN_SESSION_KEY = "middleMathQuiz5476Admin";
+    const PARTICIPANT_SESSION_KEY = "middleMathQuiz5476Participant";
+    const ADMIN_PASSWORD = "5476";
+
+    const defaultQuiz = () => ({
+      number: 0,
+      phase: "waiting",
+      imageData: "",
+      answer: "",
+      createdAt: "",
+      gradedAt: "",
+      correctCount: 0,
+      totalCount: 0,
+      pointValue: 0
+    });
+
+    const defaultState = () => ({
+      participants: {},
+      quiz: defaultQuiz(),
+      submissions: {},
+      history: []
+    });
+
+    let state = loadState();
+    let currentMode = sessionStorage.getItem(ADMIN_SESSION_KEY) === "1" ? "admin" : "participant";
+    let toastTimer = null;
+    const syncChannel = "BroadcastChannel" in window ? new BroadcastChannel("middleMathQuiz5476Sync") : null;
+
+    const el = {
+      participantCount: document.getElementById("participantCount"),
+      leaderboardList: document.getElementById("leaderboardList"),
+      roundSummary: document.getElementById("roundSummary"),
+      participantModeBtn: document.getElementById("participantModeBtn"),
+      adminModeBtn: document.getElementById("adminModeBtn"),
+      participantView: document.getElementById("participantView"),
+      adminView: document.getElementById("adminView"),
+      joinPanel: document.getElementById("joinPanel"),
+      joinForm: document.getElementById("joinForm"),
+      studentIdInput: document.getElementById("studentIdInput"),
+      studentNameInput: document.getElementById("studentNameInput"),
+      profilePanel: document.getElementById("profilePanel"),
+      profileStudentId: document.getElementById("profileStudentId"),
+      profileName: document.getElementById("profileName"),
+      profileScore: document.getElementById("profileScore"),
+      changeParticipantBtn: document.getElementById("changeParticipantBtn"),
+      participantQuizBadge: document.getElementById("participantQuizBadge"),
+      participantQuestionStage: document.getElementById("participantQuestionStage"),
+      answerForm: document.getElementById("answerForm"),
+      answerInput: document.getElementById("answerInput"),
+      participantResult: document.getElementById("participantResult"),
+      adminLoginPanel: document.getElementById("adminLoginPanel"),
+      adminLoginForm: document.getElementById("adminLoginForm"),
+      adminPasswordInput: document.getElementById("adminPasswordInput"),
+      adminPanel: document.getElementById("adminPanel"),
+      questionForm: document.getElementById("questionForm"),
+      questionImageInput: document.getElementById("questionImageInput"),
+      correctAnswerInput: document.getElementById("correctAnswerInput"),
+      gradeBtn: document.getElementById("gradeBtn"),
+      nextQuestionBtn: document.getElementById("nextQuestionBtn"),
+      adminQuizBadge: document.getElementById("adminQuizBadge"),
+      submittedStat: document.getElementById("submittedStat"),
+      correctStat: document.getElementById("correctStat"),
+      pointStat: document.getElementById("pointStat"),
+      adminQuestionStage: document.getElementById("adminQuestionStage"),
+      submissionCountBadge: document.getElementById("submissionCountBadge"),
+      submissionTableBody: document.getElementById("submissionTableBody"),
+      adminParticipantBadge: document.getElementById("adminParticipantBadge"),
+      participantTableBody: document.getElementById("participantTableBody"),
+      resetScoresBtn: document.getElementById("resetScoresBtn"),
+      clearParticipantsBtn: document.getElementById("clearParticipantsBtn"),
+      resetQuizBtn: document.getElementById("resetQuizBtn"),
+      historyList: document.getElementById("historyList"),
+      toast: document.getElementById("toast")
+    };
+
+    function loadState() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (!saved) return defaultState();
+        const parsed = JSON.parse(saved);
+        return {
+          ...defaultState(),
+          ...parsed,
+          participants: parsed.participants || {},
+          quiz: { ...defaultQuiz(), ...(parsed.quiz || {}) },
+          submissions: parsed.submissions || {},
+          history: Array.isArray(parsed.history) ? parsed.history : []
+        };
+      } catch (error) {
+        return defaultState();
+      }
+    }
+
+    function saveState(nextState) {
+      state = nextState;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      if (syncChannel) syncChannel.postMessage({ type: "state-updated" });
+      render();
+    }
+
+    function updateState(updater) {
+      const nextState = loadState();
+      updater(nextState);
+      saveState(nextState);
+    }
+
+    function getParticipants() {
+      return Object.values(state.participants).sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return `${a.studentId}`.localeCompare(`${b.studentId}`, "ko");
+      });
+    }
+
+    function getParticipantKey() {
+      return sessionStorage.getItem(PARTICIPANT_SESSION_KEY) || "";
+    }
+
+    function getCurrentParticipant() {
+      const key = getParticipantKey();
+      return key ? state.participants[key] : null;
+    }
+
+    function cleanKey(value) {
+      return String(value || "").trim().replace(/\s+/g, "");
+    }
+
+    function normalizeAnswer(value) {
+      return String(value || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[，、]/g, ",")
+        .replace(/\s+/g, "");
+    }
+
+    function answerVariants(answer) {
+      return String(answer || "")
+        .split(/[,;\n]/)
+        .map(normalizeAnswer)
+        .filter(Boolean);
+    }
+
+    function isCorrectAnswer(studentAnswer, correctAnswer) {
+      const normalized = normalizeAnswer(studentAnswer);
+      const variants = answerVariants(correctAnswer);
+      return normalized !== "" && variants.includes(normalized);
+    }
+
+    function calculatePoint(correctCount, totalCount) {
+      if (correctCount <= 0 || totalCount <= 0) return 0;
+      if (correctCount === 1) return 100;
+      if (correctCount >= totalCount) return 50;
+      return Math.round(100 - ((correctCount - 1) / (totalCount - 1)) * 50);
+    }
+
+    function formatTime(value) {
+      if (!value) return "-";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "-";
+      return date.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+    }
+
+    function escapeText(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function showToast(message) {
+      el.toast.textContent = message;
+      el.toast.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.toast.classList.remove("show"), 2400);
+    }
+
+    function setBadge(node, phase, number) {
+      node.className = "badge";
+      if (phase === "open") {
+        node.classList.add("open");
+        node.textContent = `${number}번 진행 중`;
+      } else if (phase === "graded") {
+        node.classList.add("graded");
+        node.textContent = `${number}번 채점 완료`;
+      } else {
+        node.classList.add("waiting");
+        node.textContent = "대기";
+      }
+    }
+
+    function renderQuestionStage(node) {
+      if (state.quiz.imageData) {
+        node.innerHTML = `<img src="${state.quiz.imageData}" alt="${state.quiz.number}번 수학 문제" />`;
+        return;
+      }
+      node.innerHTML = `<div class="question-empty">아직 출제된 문제가 없습니다.</div>`;
+    }
+
+    function renderLeaderboard() {
+      const participants = getParticipants();
+      el.participantCount.textContent = `${participants.length}명`;
+      const topTen = participants.slice(0, 10);
+      if (topTen.length === 0) {
+        el.leaderboardList.innerHTML = `<p class="empty-rank">참가자가 등록되면 여기에 점수가 표시됩니다.</p>`;
+        return;
+      }
+      el.leaderboardList.innerHTML = topTen.map((participant, index) => `
+        <div class="rank-row">
+          <div class="rank-number">${index + 1}</div>
+          <div class="rank-name">
+            <strong>${escapeText(participant.name)}</strong>
+            <span>${escapeText(participant.studentId)}</span>
+          </div>
+          <div class="rank-score">${participant.score}</div>
+        </div>
+      `).join("");
+    }
+
+    function renderHeader() {
+      const quiz = state.quiz;
+      if (quiz.phase === "open") {
+        el.roundSummary.textContent = `${quiz.number}번 문제 진행 중 · 제출 ${Object.keys(state.submissions).length}명`;
+      } else if (quiz.phase === "graded") {
+        el.roundSummary.textContent = `${quiz.number}번 채점 완료 · 정답 ${quiz.correctCount}/${quiz.totalCount}명 · +${quiz.pointValue}점`;
+      } else {
+        el.roundSummary.textContent = "대기 중";
+      }
+    }
+
+    function renderMode() {
+      const isAdminMode = currentMode === "admin";
+      el.participantView.classList.toggle("hidden", isAdminMode);
+      el.adminView.classList.toggle("hidden", !isAdminMode);
+      el.participantModeBtn.classList.toggle("secondary", isAdminMode);
+      el.adminModeBtn.classList.toggle("secondary", !isAdminMode);
+      el.adminModeBtn.classList.toggle("gold", isAdminMode);
+    }
+
+    function renderParticipant() {
+      const participant = getCurrentParticipant();
+      el.joinPanel.classList.toggle("hidden", Boolean(participant));
+      el.profilePanel.classList.toggle("hidden", !participant);
+
+      if (participant) {
+        el.profileStudentId.textContent = participant.studentId;
+        el.profileName.textContent = participant.name;
+        el.profileScore.textContent = participant.score;
+      }
+
+      setBadge(el.participantQuizBadge, state.quiz.phase, state.quiz.number);
+      renderQuestionStage(el.participantQuestionStage);
+
+      const submission = participant ? state.submissions[participant.key] : null;
+      const canAnswer = participant && state.quiz.phase === "open" && state.quiz.imageData;
+      el.answerForm.classList.toggle("hidden", !canAnswer);
+      el.participantResult.classList.add("hidden", "good", "bad", "gold");
+      el.participantResult.textContent = "";
+
+      if (!participant) {
+        el.answerForm.classList.add("hidden");
+        el.participantResult.classList.remove("hidden");
+        el.participantResult.textContent = "학번과 이름을 등록하면 답안을 제출할 수 있습니다.";
+        return;
+      }
+
+      if (canAnswer) {
+        el.answerInput.value = submission ? submission.answer : "";
+        const submitButton = el.answerForm.querySelector("button");
+        submitButton.textContent = submission ? "수정" : "제출";
+        if (submission) {
+          el.participantResult.classList.remove("hidden");
+          el.participantResult.classList.add("gold");
+          el.participantResult.textContent = `제출한 답안: ${submission.answer}`;
+        }
+        return;
+      }
+
+      if (state.quiz.phase === "graded" && submission) {
+        el.participantResult.classList.remove("hidden");
+        if (submission.correct) {
+          el.participantResult.classList.add("good");
+          el.participantResult.textContent = `정답입니다. +${submission.awarded}점이 반영되었습니다.`;
+        } else {
+          el.participantResult.classList.add("bad");
+          el.participantResult.textContent = `오답입니다. 정답: ${state.quiz.answer}`;
+        }
+      } else if (state.quiz.phase === "graded") {
+        el.participantResult.classList.remove("hidden");
+        el.participantResult.classList.add("bad");
+        el.participantResult.textContent = `미제출입니다. 정답: ${state.quiz.answer}`;
+      } else {
+        el.participantResult.classList.remove("hidden");
+        el.participantResult.textContent = "관리자가 다음 문제를 출제하면 이곳에 표시됩니다.";
+      }
+    }
+
+    function renderAdminGate() {
+      const isAdmin = sessionStorage.getItem(ADMIN_SESSION_KEY) === "1";
+      el.adminLoginPanel.classList.toggle("hidden", isAdmin);
+      el.adminPanel.classList.toggle("hidden", !isAdmin);
+    }
+
+    function renderAdminQuestion() {
+      setBadge(el.adminQuizBadge, state.quiz.phase, state.quiz.number);
+      renderQuestionStage(el.adminQuestionStage);
+
+      const submissionCount = Object.keys(state.submissions).length;
+      el.submittedStat.textContent = submissionCount;
+      el.correctStat.textContent = state.quiz.phase === "graded" ? state.quiz.correctCount : "-";
+      el.pointStat.textContent = state.quiz.phase === "graded" ? state.quiz.pointValue : "-";
+      el.submissionCountBadge.textContent = `${submissionCount}개`;
+      el.correctAnswerInput.value = state.quiz.answer || "";
+      el.gradeBtn.disabled = state.quiz.phase !== "open";
+    }
+
+    function renderSubmissions() {
+      const participants = getParticipants().sort((a, b) => `${a.studentId}`.localeCompare(`${b.studentId}`, "ko"));
+      if (participants.length === 0) {
+        el.submissionTableBody.innerHTML = `
+          <tr>
+            <td colspan="5">등록된 참가자가 없습니다.</td>
+          </tr>
+        `;
+        return;
+      }
+
+      el.submissionTableBody.innerHTML = participants.map(participant => {
+        const submission = state.submissions[participant.key];
+        let result = `<span class="pill">대기</span>`;
+        let awarded = "-";
+        if (state.quiz.phase === "graded") {
+          if (submission && submission.correct) {
+            result = `<span class="pill good">정답</span>`;
+            awarded = `+${submission.awarded}`;
+          } else {
+            result = `<span class="pill bad">${submission ? "오답" : "미제출"}</span>`;
+            awarded = "0";
+          }
+        } else if (submission) {
+          result = `<span class="pill good">${formatTime(submission.submittedAt)}</span>`;
+        }
+
+        return `
+          <tr>
+            <td>${escapeText(participant.studentId)}</td>
+            <td>${escapeText(participant.name)}</td>
+            <td>${submission ? escapeText(submission.answer) : "-"}</td>
+            <td>${result}</td>
+            <td>${awarded}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function renderParticipantsTable() {
+      const participants = getParticipants().sort((a, b) => `${a.studentId}`.localeCompare(`${b.studentId}`, "ko"));
+      el.adminParticipantBadge.textContent = `${participants.length}명`;
+      if (participants.length === 0) {
+        el.participantTableBody.innerHTML = `
+          <tr>
+            <td colspan="4">등록된 참가자가 없습니다.</td>
+          </tr>
+        `;
+        return;
+      }
+
+      el.participantTableBody.innerHTML = participants.map(participant => `
+        <tr>
+          <td>${escapeText(participant.studentId)}</td>
+          <td>${escapeText(participant.name)}</td>
+          <td>${participant.score}</td>
+          <td>
+            <div class="table-actions">
+              <button class="mini-btn" type="button" data-action="zero-score" data-key="${escapeText(participant.key)}">0점</button>
+              <button class="mini-btn danger" type="button" data-action="remove" data-key="${escapeText(participant.key)}">삭제</button>
+            </div>
+          </td>
+        </tr>
+      `).join("");
+    }
+
+    function renderHistory() {
+      if (!state.history.length) {
+        el.historyList.innerHTML = `<div class="status">아직 채점 기록이 없습니다.</div>`;
+        return;
+      }
+
+      el.historyList.innerHTML = state.history.slice(-8).reverse().map(item => `
+        <div class="history-item">
+          <strong>${item.number}번</strong>
+          <span>정답 ${escapeText(item.answer)} · ${item.correctCount}/${item.totalCount}명</span>
+          <strong>+${item.pointValue}</strong>
+        </div>
+      `).join("");
+    }
+
+    function renderAdmin() {
+      renderAdminGate();
+      renderAdminQuestion();
+      renderSubmissions();
+      renderParticipantsTable();
+      renderHistory();
+    }
+
+    function render() {
+      renderLeaderboard();
+      renderHeader();
+      renderMode();
+      renderParticipant();
+      renderAdmin();
+    }
+
+    function readPngAsDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        if (!file) {
+          reject(new Error("PNG 파일을 선택해 주세요."));
+          return;
+        }
+        if (file.type !== "image/png") {
+          reject(new Error("PNG 파일만 사용할 수 있습니다."));
+          return;
+        }
+        if (file.size > 3 * 1024 * 1024) {
+          reject(new Error("문제 이미지는 3MB 이하 PNG를 권장합니다."));
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error("이미지를 읽지 못했습니다."));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    el.participantModeBtn.addEventListener("click", () => {
+      currentMode = "participant";
+      render();
+    });
+
+    el.adminModeBtn.addEventListener("click", () => {
+      currentMode = "admin";
+      render();
+    });
+
+    el.joinForm.addEventListener("submit", event => {
+      event.preventDefault();
+      const studentId = el.studentIdInput.value.trim();
+      const name = el.studentNameInput.value.trim();
+      const key = cleanKey(studentId);
+
+      if (!key || !name) {
+        showToast("학번과 이름을 입력해 주세요.");
+        return;
+      }
+
+      updateState(nextState => {
+        const existing = nextState.participants[key];
+        nextState.participants[key] = {
+          key,
+          studentId,
+          name,
+          score: existing ? existing.score : 0,
+          joinedAt: existing ? existing.joinedAt : new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+      });
+
+      sessionStorage.setItem(PARTICIPANT_SESSION_KEY, key);
+      el.studentIdInput.value = "";
+      el.studentNameInput.value = "";
+      showToast(`${name} 참가 등록 완료`);
+    });
+
+    el.changeParticipantBtn.addEventListener("click", () => {
+      sessionStorage.removeItem(PARTICIPANT_SESSION_KEY);
+      render();
+    });
+
+    el.answerForm.addEventListener("submit", event => {
+      event.preventDefault();
+      const participant = getCurrentParticipant();
+      const answer = el.answerInput.value.trim();
+
+      if (!participant) {
+        showToast("참가 등록을 먼저 해 주세요.");
+        return;
+      }
+      if (state.quiz.phase !== "open") {
+        showToast("현재 제출 가능한 문제가 없습니다.");
+        return;
+      }
+      if (!answer) {
+        showToast("정답을 입력해 주세요.");
+        return;
+      }
+
+      updateState(nextState => {
+        nextState.submissions[participant.key] = {
+          participantKey: participant.key,
+          answer,
+          submittedAt: new Date().toISOString(),
+          correct: null,
+          awarded: 0
+        };
+      });
+
+      showToast("답안이 제출되었습니다.");
+    });
+
+    el.adminLoginForm.addEventListener("submit", event => {
+      event.preventDefault();
+      if (el.adminPasswordInput.value === ADMIN_PASSWORD) {
+        sessionStorage.setItem(ADMIN_SESSION_KEY, "1");
+        el.adminPasswordInput.value = "";
+        currentMode = "admin";
+        showToast("관리자로 입장했습니다.");
+        render();
+      } else {
+        showToast("암호가 맞지 않습니다.");
+      }
+    });
+
+    el.questionForm.addEventListener("submit", async event => {
+      event.preventDefault();
+
+      try {
+        const answer = el.correctAnswerInput.value.trim();
+        if (!answer) {
+          showToast("정답을 입력해 주세요.");
+          return;
+        }
+        if (state.quiz.phase === "open" && Object.keys(state.submissions).length > 0) {
+          const proceed = confirm("진행 중인 문제와 제출 답안이 사라집니다. 새 문제를 출제할까요?");
+          if (!proceed) return;
+        }
+
+        const imageData = await readPngAsDataUrl(el.questionImageInput.files[0]);
+        updateState(nextState => {
+          nextState.quiz = {
+            ...defaultQuiz(),
+            number: (nextState.quiz.number || 0) + 1,
+            phase: "open",
+            imageData,
+            answer,
+            createdAt: new Date().toISOString()
+          };
+          nextState.submissions = {};
+        });
+
+        el.questionImageInput.value = "";
+        showToast("문제가 출제되었습니다.");
+      } catch (error) {
+        showToast(error.message || "문제를 출제하지 못했습니다.");
+      }
+    });
+
+    el.gradeBtn.addEventListener("click", () => {
+      if (state.quiz.phase !== "open") {
+        showToast("채점할 문제가 없습니다.");
+        return;
+      }
+
+      const answer = el.correctAnswerInput.value.trim() || state.quiz.answer;
+      if (!answer) {
+        showToast("정답을 입력해 주세요.");
+        return;
+      }
+
+      updateState(nextState => {
+        nextState.quiz.answer = answer;
+        const participants = Object.values(nextState.participants);
+        const totalCount = participants.length;
+        const results = participants.map(participant => {
+          const submission = nextState.submissions[participant.key];
+          const correct = submission ? isCorrectAnswer(submission.answer, answer) : false;
+          return { participant, submission, correct };
+        });
+        const correctCount = results.filter(result => result.correct).length;
+        const pointValue = calculatePoint(correctCount, totalCount);
+
+        results.forEach(result => {
+          if (!result.submission) {
+            nextState.submissions[result.participant.key] = {
+              participantKey: result.participant.key,
+              answer: "",
+              submittedAt: "",
+              correct: false,
+              awarded: 0
+            };
+            return;
+          }
+
+          result.submission.correct = result.correct;
+          result.submission.awarded = result.correct ? pointValue : 0;
+          if (result.correct) {
+            result.participant.score += pointValue;
+          }
+        });
+
+        nextState.quiz.phase = "graded";
+        nextState.quiz.gradedAt = new Date().toISOString();
+        nextState.quiz.correctCount = correctCount;
+        nextState.quiz.totalCount = totalCount;
+        nextState.quiz.pointValue = pointValue;
+        nextState.history.push({
+          number: nextState.quiz.number,
+          answer,
+          correctCount,
+          totalCount,
+          pointValue,
+          gradedAt: nextState.quiz.gradedAt
+        });
+      });
+
+      showToast("채점과 점수 반영이 완료되었습니다.");
+    });
+
+    el.nextQuestionBtn.addEventListener("click", () => {
+      if (state.quiz.phase === "open" && Object.keys(state.submissions).length > 0) {
+        const proceed = confirm("아직 채점하지 않은 답안이 있습니다. 다음 문제로 넘어갈까요?");
+        if (!proceed) return;
+      }
+
+      updateState(nextState => {
+        nextState.quiz = {
+          ...defaultQuiz(),
+          number: nextState.quiz.number || 0,
+          phase: "waiting"
+        };
+        nextState.submissions = {};
+      });
+
+      el.correctAnswerInput.value = "";
+      el.questionImageInput.value = "";
+      showToast("다음 문제를 준비합니다.");
+    });
+
+    el.resetScoresBtn.addEventListener("click", () => {
+      const proceed = confirm("모든 참가자의 점수를 0점으로 바꿀까요?");
+      if (!proceed) return;
+      updateState(nextState => {
+        Object.values(nextState.participants).forEach(participant => {
+          participant.score = 0;
+        });
+      });
+      showToast("점수가 초기화되었습니다.");
+    });
+
+    el.clearParticipantsBtn.addEventListener("click", () => {
+      const proceed = confirm("모든 참가자를 삭제할까요?");
+      if (!proceed) return;
+      updateState(nextState => {
+        nextState.participants = {};
+        nextState.submissions = {};
+      });
+      showToast("참가자가 삭제되었습니다.");
+    });
+
+    el.resetQuizBtn.addEventListener("click", () => {
+      const proceed = confirm("현재 문제와 채점 기록을 초기화할까요?");
+      if (!proceed) return;
+      updateState(nextState => {
+        nextState.quiz = defaultQuiz();
+        nextState.submissions = {};
+        nextState.history = [];
+      });
+      showToast("퀴즈가 초기화되었습니다.");
+    });
+
+    el.participantTableBody.addEventListener("click", event => {
+      const button = event.target.closest("button[data-action]");
+      if (!button) return;
+      const action = button.dataset.action;
+      const key = button.dataset.key;
+      const participant = state.participants[key];
+      if (!participant) return;
+
+      if (action === "zero-score") {
+        updateState(nextState => {
+          if (nextState.participants[key]) nextState.participants[key].score = 0;
+        });
+        showToast(`${participant.name} 점수를 초기화했습니다.`);
+      }
+
+      if (action === "remove") {
+        const proceed = confirm(`${participant.name} 참가자를 삭제할까요?`);
+        if (!proceed) return;
+        updateState(nextState => {
+          delete nextState.participants[key];
+          delete nextState.submissions[key];
+        });
+        showToast("참가자를 삭제했습니다.");
+      }
+    });
+
+    window.addEventListener("storage", event => {
+      if (event.key === STORAGE_KEY) {
+        state = loadState();
+        render();
+      }
+    });
+
+    if (syncChannel) {
+      syncChannel.onmessage = event => {
+        if (event.data && event.data.type === "state-updated") {
+          state = loadState();
+          render();
+        }
+      };
+    }
+
+    render();
+  </script>
+</body>
+</html>
