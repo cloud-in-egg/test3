@@ -476,7 +476,6 @@
     }
 
     .quiz-info-panel {
-      margin-bottom: 18px;
       padding: 14px;
     }
 
@@ -484,6 +483,18 @@
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 10px;
+    }
+
+    .participant-quiz-info .quiz-overview {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .participant-quiz-info .stat {
+      padding: 12px;
+    }
+
+    .participant-quiz-info .stat strong {
+      font-size: 20px;
     }
 
     .stat {
@@ -747,27 +758,6 @@
       </div>
     </header>
 
-    <section class="panel quiz-info-panel" aria-label="퀴즈 현황">
-      <div class="quiz-overview">
-        <div class="stat">
-          <span>문제</span>
-          <strong id="roundNumberStat">대기</strong>
-        </div>
-        <div class="stat">
-          <span>답안 제출</span>
-          <strong id="answerSubmitRatioStat">0 / 0</strong>
-        </div>
-        <div class="stat">
-          <span>정답 인원</span>
-          <strong id="correctRatioStat">채점 전</strong>
-        </div>
-        <div class="stat">
-          <span>이번 배점</span>
-          <strong id="scoreGainStat">채점 전</strong>
-        </div>
-      </div>
-    </section>
-
     <section id="participantView" class="layout">
       <div>
         <section class="panel">
@@ -830,6 +820,27 @@
           <div id="participantTimerPanel" class="participant-timer hidden" aria-live="polite">
             <span>자동 채점</span>
             <strong id="participantTimerText">0초 전</strong>
+          </div>
+        </section>
+
+        <section id="quizInfoPanel" class="panel quiz-info-panel participant-quiz-info hidden" aria-label="퀴즈 현황">
+          <div class="quiz-overview">
+            <div class="stat">
+              <span>문제</span>
+              <strong id="roundNumberStat">대기</strong>
+            </div>
+            <div class="stat">
+              <span>답안 제출</span>
+              <strong id="answerSubmitRatioStat">0 / 0</strong>
+            </div>
+            <div class="stat">
+              <span>정답 인원</span>
+              <strong id="correctRatioStat">채점 전</strong>
+            </div>
+            <div class="stat">
+              <span>이번 배점</span>
+              <strong id="scoreGainStat">채점 전</strong>
+            </div>
           </div>
         </section>
       </aside>
@@ -1038,6 +1049,7 @@
       participantCount: document.getElementById("participantCount"),
       leaderboardList: document.getElementById("leaderboardList"),
       roundSummary: document.getElementById("roundSummary"),
+      quizInfoPanel: document.getElementById("quizInfoPanel"),
       roundNumberStat: document.getElementById("roundNumberStat"),
       answerSubmitRatioStat: document.getElementById("answerSubmitRatioStat"),
       correctRatioStat: document.getElementById("correctRatioStat"),
@@ -1376,6 +1388,7 @@
 
       el.joinPanel.classList.toggle("hidden", Boolean(participant));
       el.profilePanel.classList.toggle("hidden", !participant);
+      el.quizInfoPanel.classList.toggle("hidden", !participant);
 
       if (participant) {
         registerParticipantPresence(participant.key);
