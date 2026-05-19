@@ -234,6 +234,11 @@
       justify-content: flex-end;
     }
 
+    .timer-actions {
+      justify-content: flex-start;
+      margin-top: 10px;
+    }
+
     .btn {
       min-height: 42px;
       padding: 0 16px;
@@ -500,6 +505,31 @@
       font-size: 24px;
       line-height: 1;
       color: var(--primary-dark);
+    }
+
+    .participant-timer {
+      margin-top: 14px;
+      border-radius: var(--radius);
+      background: rgba(244, 185, 66, 0.24);
+      border: 1px solid rgba(244, 185, 66, 0.44);
+      color: #6b4c00;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .participant-timer span {
+      display: block;
+      font-size: 13px;
+      font-weight: 900;
+      color: #7a5a0a;
+      margin-bottom: 6px;
+    }
+
+    .participant-timer strong {
+      display: block;
+      font-size: clamp(32px, 5vw, 52px);
+      line-height: 1;
+      color: #2b2410;
     }
 
     .table-wrap {
@@ -797,6 +827,10 @@
               <strong id="profileScore">0</strong>
             </div>
           </div>
+          <div id="participantTimerPanel" class="participant-timer hidden" aria-live="polite">
+            <span>자동 채점</span>
+            <strong id="participantTimerText">0초 전</strong>
+          </div>
         </section>
       </aside>
     </section>
@@ -848,6 +882,11 @@
                 <button class="btn" type="submit">문제 출제</button>
                 <button class="btn gold" id="gradeBtn" type="button">채점 및 점수 반영</button>
                 <button class="btn secondary" id="nextQuestionBtn" type="button">다음 문제</button>
+              </div>
+              <div class="mode-actions timer-actions" aria-label="자동 채점 타이머">
+                <button class="btn secondary timer-btn" type="button" data-timer-seconds="10">10초</button>
+                <button class="btn secondary timer-btn" type="button" data-timer-seconds="20">20초</button>
+                <button class="btn secondary timer-btn" type="button" data-timer-seconds="30">30초</button>
               </div>
             </form>
             <div class="stats-grid">
@@ -969,6 +1008,9 @@
       answer: "",
       createdAt: "",
       gradedAt: "",
+      timerSeconds: 0,
+      autoGradeAt: 0,
+      autoGradeStartedAt: "",
       correctCount: 0,
       totalCount: 0,
       pointValue: 0
@@ -988,6 +1030,8 @@
     let presenceKey = "";
     let presenceDisconnect = null;
     let firebaseReady = false;
+    let autoGradeTimer = null;
+    let countdownTimer = null;
     let toastTimer = null;
 
     const el = {
@@ -1010,6 +1054,8 @@
       profileStudentId: document.getElementById("profileStudentId"),
       profileName: document.getElementById("profileName"),
       profileScore: document.getElementById("profileScore"),
+      participantTimerPanel: document.getElementById("participantTimerPanel"),
+      participantTimerText: document.getElementById("participantTimerText"),
       participantQuizBadge: document.getElementById("participantQuizBadge"),
       participantQuestionStage: document.getElementById("participantQuestionStage"),
       answerForm: document.getElementById("answerForm"),
@@ -1028,6 +1074,7 @@
       oxCorrectButtons: document.querySelectorAll("[data-ox-correct]"),
       correctAnswerInput: document.getElementById("correctAnswerInput"),
       gradeBtn: document.getElementById("gradeBtn"),
+      timerButtons: document.querySelectorAll("[data-timer-seconds]"),
       nextQuestionBtn: document.getElementById("nextQuestionBtn"),
       adminQuizBadge: document.getElementById("adminQuizBadge"),
       submittedStat: document.getElementById("submittedStat"),
@@ -1078,6 +1125,11 @@
         const submission = state.submissions[key];
         return submission && String(submission.answer || "").trim() !== "";
       }).length;
+    }
+
+    function getRemainingSeconds() {
+      if (state.quiz.phase !== "open" || !state.quiz.autoGradeAt) return 0;
+      return Math.max(0, Math.ceil((Number(state.quiz.autoGradeAt) - Date.now()) / 1000));
     }
 
     function getParticipantKey() {
@@ -1131,8 +1183,8 @@
     function calculatePoint(correctCount, totalCount) {
       if (correctCount <= 0 || totalCount <= 0) return 0;
       if (correctCount === 1) return 100;
-      if (correctCount >= totalCount) return 50;
-      return Math.round(100 - ((correctCount - 1) / (totalCount - 1)) * 50);
+      if (correctCount >= totalCount) return 30;
+      return Math.round(100 - ((correctCount - 1) / (totalCount - 1)) * 70);
     }
 
     function formatTime(value) {
@@ -1254,7 +1306,10 @@
     function renderLeaderboard() {
       const participants = getParticipants();
       el.participantCount.textContent = `${participants.length}명`;
-      const topTen = participants.slice(0, 10);
+      const tenthScore = participants.length > 10 ? participants[9].score || 0 : null;
+      const topTen = tenthScore === null
+        ? participants
+        : participants.filter(participant => (participant.score || 0) >= tenthScore);
       if (topTen.length === 0) {
         el.leaderboardList.innerHTML = `<p class="empty-rank">참가자가 등록되면 여기에 점수가 표시됩니다.</p>`;
         return;
@@ -1278,6 +1333,8 @@
       const submittedCount = getSubmittedCount();
       const correctText = quiz.phase === "graded" ? `${quiz.correctCount || 0}/${quiz.totalCount || totalCount}명` : "채점 전";
       const pointText = quiz.phase === "graded" ? `+${quiz.pointValue || 0}점` : "채점 전";
+      const remainingSeconds = getRemainingSeconds();
+      const timerText = remainingSeconds > 0 ? ` · 자동 채점 ${remainingSeconds}초 전` : "";
 
       el.roundNumberStat.textContent = quiz.number ? `${quiz.number}번 ${typeLabel}` : "대기";
       el.answerSubmitRatioStat.textContent = `${submittedCount} / ${totalCount}`;
@@ -1285,11 +1342,21 @@
       el.scoreGainStat.textContent = pointText;
 
       if (quiz.phase === "open") {
-        el.roundSummary.textContent = `${quiz.number}번 ${typeLabel} 문제 진행 중 · 답안 제출 ${submittedCount}/${totalCount}명 · 정답 채점 전`;
+        el.roundSummary.textContent = `${quiz.number}번 ${typeLabel} 문제 진행 중 · 답안 제출 ${submittedCount}/${totalCount}명 · 정답 채점 전${timerText}`;
       } else if (quiz.phase === "graded") {
         el.roundSummary.textContent = `${quiz.number}번 ${typeLabel} 채점 완료 · 정답 ${quiz.correctCount || 0}/${quiz.totalCount || totalCount}명 · ${pointText}`;
       } else {
         el.roundSummary.textContent = `대기 중 · 현재 참가 ${totalCount}명`;
+      }
+    }
+
+    function renderParticipantTimer() {
+      const participant = getCurrentParticipant();
+      const remainingSeconds = getRemainingSeconds();
+      const shouldShow = Boolean(participant) && state.quiz.phase === "open" && remainingSeconds > 0;
+      el.participantTimerPanel.classList.toggle("hidden", !shouldShow);
+      if (shouldShow) {
+        el.participantTimerText.textContent = `${remainingSeconds}초 전`;
       }
     }
 
@@ -1319,6 +1386,8 @@
         clearParticipantPresence();
         localStorage.removeItem(PARTICIPANT_LOCAL_KEY);
       }
+
+      renderParticipantTimer();
 
       setBadge(el.participantQuizBadge, state.quiz.phase, state.quiz.number);
       renderQuestionStage(el.participantQuestionStage);
@@ -1400,6 +1469,9 @@
       el.pointStat.textContent = state.quiz.phase === "graded" ? `+${state.quiz.pointValue || 0}` : "채점 전";
       el.submissionCountBadge.textContent = `${submissionCount}/${totalCount}`;
       el.gradeBtn.disabled = state.quiz.phase !== "open";
+      el.timerButtons.forEach(button => {
+        button.disabled = state.quiz.phase !== "open" || Boolean(state.quiz.autoGradeAt);
+      });
 
       if (state.quiz.phase !== "waiting") {
         setQuestionType(state.quiz.type);
@@ -1563,6 +1635,130 @@
       }
     }
 
+    function applyGradeToState(nextState, overrideAnswer) {
+      const type = nextState.quiz.type === "ox" ? "ox" : "short";
+      const answer = type === "ox" ? normalizeOx(overrideAnswer || nextState.quiz.answer) : String(overrideAnswer || nextState.quiz.answer || "").trim();
+      const participants = Object.values(nextState.participants || {}).filter(participant => participant.online !== false);
+      const totalCount = participants.length;
+      const results = participants.map(participant => {
+        const submission = nextState.submissions[participant.key];
+        const correct = submission ? isCorrectAnswer(submission.answer, answer, type) : false;
+        return { participant, submission, correct };
+      });
+      const correctCount = results.filter(item => item.correct).length;
+      const pointValue = calculatePoint(correctCount, totalCount);
+
+      results.forEach(item => {
+        if (!item.submission) {
+          nextState.submissions[item.participant.key] = {
+            participantKey: item.participant.key,
+            answer: "",
+            submittedAt: "",
+            correct: false,
+            awarded: 0
+          };
+          return;
+        }
+
+        item.submission.correct = item.correct;
+        item.submission.awarded = item.correct ? pointValue : 0;
+        if (item.correct) {
+          item.participant.score = (item.participant.score || 0) + pointValue;
+        }
+      });
+
+      nextState.quiz.answer = answer;
+      nextState.quiz.phase = "graded";
+      nextState.quiz.gradedAt = new Date().toISOString();
+      nextState.quiz.autoGradeAt = 0;
+      nextState.quiz.timerSeconds = 0;
+      nextState.quiz.correctCount = correctCount;
+      nextState.quiz.totalCount = totalCount;
+      nextState.quiz.pointValue = pointValue;
+      nextState.history.push({
+        number: nextState.quiz.number,
+        type,
+        answer,
+        correctCount,
+        totalCount,
+        pointValue,
+        gradedAt: nextState.quiz.gradedAt
+      });
+    }
+
+    async function gradeOpenQuiz(overrideAnswer, successMessage, options = {}) {
+      const requireDue = Boolean(options.requireDue);
+      const quiet = Boolean(options.quiet);
+
+      try {
+        const result = await runTransaction(roomRef, current => {
+          if (!current) return current;
+          const nextState = normalizeState(current);
+          if (nextState.quiz.phase !== "open") return current;
+          if (requireDue && (!nextState.quiz.autoGradeAt || Number(nextState.quiz.autoGradeAt) > Date.now())) return current;
+          applyGradeToState(nextState, overrideAnswer || nextState.quiz.answer);
+          return nextState;
+        });
+
+        if (!quiet) {
+          showToast(result.committed ? successMessage : "채점이 반영되지 않았습니다. 다시 시도해 주세요.");
+        }
+      } catch (error) {
+        showFirebaseError(error);
+      }
+    }
+
+    function scheduleAutoGrade() {
+      clearTimeout(autoGradeTimer);
+      clearInterval(countdownTimer);
+      autoGradeTimer = null;
+      countdownTimer = null;
+
+      if (state.quiz.phase !== "open" || !state.quiz.autoGradeAt) return;
+
+      const msLeft = Number(state.quiz.autoGradeAt) - Date.now();
+      if (msLeft <= 0) {
+        gradeOpenQuiz(state.quiz.answer, "자동 채점이 완료되었습니다.", { requireDue: true, quiet: true });
+        return;
+      }
+
+      autoGradeTimer = setTimeout(() => {
+        gradeOpenQuiz(state.quiz.answer, "자동 채점이 완료되었습니다.", { requireDue: true, quiet: true });
+      }, msLeft + 150);
+
+      countdownTimer = setInterval(() => {
+        renderHeader();
+        renderParticipantTimer();
+      }, 1000);
+    }
+
+    async function startAutoGradeTimer(seconds) {
+      if (state.quiz.phase !== "open") {
+        showToast("출제 중인 문제가 있을 때만 타이머를 시작할 수 있습니다.");
+        return;
+      }
+      if (state.quiz.autoGradeAt) {
+        showToast("이미 자동 채점 타이머가 실행 중입니다.");
+        return;
+      }
+
+      try {
+        const result = await runTransaction(roomRef, current => {
+          if (!current) return current;
+          const nextState = normalizeState(current);
+          if (nextState.quiz.phase !== "open" || nextState.quiz.autoGradeAt) return current;
+          nextState.quiz.timerSeconds = seconds;
+          nextState.quiz.autoGradeAt = Date.now() + seconds * 1000;
+          nextState.quiz.autoGradeStartedAt = new Date().toISOString();
+          return nextState;
+        });
+
+        showToast(result.committed ? `${seconds}초 뒤 자동 채점됩니다.` : "타이머를 시작하지 못했습니다.");
+      } catch (error) {
+        showFirebaseError(error);
+      }
+    }
+
     el.participantModeBtn.addEventListener("click", () => {
       currentMode = "participant";
       render();
@@ -1579,6 +1775,10 @@
 
     el.oxCorrectButtons.forEach(button => {
       button.addEventListener("click", () => setOxCorrect(button.dataset.oxCorrect));
+    });
+
+    el.timerButtons.forEach(button => {
+      button.addEventListener("click", () => startAutoGradeTimer(Number(button.dataset.timerSeconds)));
     });
 
     el.joinForm.addEventListener("submit", async event => {
@@ -1704,69 +1904,7 @@
         return;
       }
 
-      try {
-        const result = await runTransaction(roomRef, current => {
-          if (!current) return current;
-          const nextState = normalizeState(current);
-          if (nextState.quiz.phase !== "open") return current;
-
-          const type = nextState.quiz.type === "ox" ? "ox" : "short";
-          const answer = type === "ox" ? normalizeOx(overrideAnswer) : overrideAnswer;
-          const participants = Object.values(nextState.participants || {}).filter(participant => participant.online !== false);
-          const totalCount = participants.length;
-          const results = participants.map(participant => {
-            const submission = nextState.submissions[participant.key];
-            const correct = submission ? isCorrectAnswer(submission.answer, answer, type) : false;
-            return { participant, submission, correct };
-          });
-          const correctCount = results.filter(item => item.correct).length;
-          const pointValue = calculatePoint(correctCount, totalCount);
-
-          results.forEach(item => {
-            if (!item.submission) {
-              nextState.submissions[item.participant.key] = {
-                participantKey: item.participant.key,
-                answer: "",
-                submittedAt: "",
-                correct: false,
-                awarded: 0
-              };
-              return;
-            }
-
-            item.submission.correct = item.correct;
-            item.submission.awarded = item.correct ? pointValue : 0;
-            if (item.correct) {
-              item.participant.score = (item.participant.score || 0) + pointValue;
-            }
-          });
-
-          nextState.quiz.answer = answer;
-          nextState.quiz.phase = "graded";
-          nextState.quiz.gradedAt = new Date().toISOString();
-          nextState.quiz.correctCount = correctCount;
-          nextState.quiz.totalCount = totalCount;
-          nextState.quiz.pointValue = pointValue;
-          nextState.history.push({
-            number: nextState.quiz.number,
-            type,
-            answer,
-            correctCount,
-            totalCount,
-            pointValue,
-            gradedAt: nextState.quiz.gradedAt
-          });
-          return nextState;
-        });
-
-        if (result.committed) {
-          showToast("채점과 점수 반영이 완료되었습니다.");
-        } else {
-          showToast("채점이 반영되지 않았습니다. 다시 시도해 주세요.");
-        }
-      } catch (error) {
-        showFirebaseError(error);
-      }
+      gradeOpenQuiz(overrideAnswer, "채점과 점수 반영이 완료되었습니다.");
     });
 
     el.nextQuestionBtn.addEventListener("click", async () => {
@@ -1883,6 +2021,7 @@
         registerParticipantPresence(localKey);
       }
       render();
+      scheduleAutoGrade();
     }, showFirebaseError);
 
     setQuestionType("short");
