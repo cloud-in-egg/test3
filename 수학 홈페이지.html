@@ -470,6 +470,17 @@
       margin: 14px 0;
     }
 
+    .quiz-info-panel {
+      margin-bottom: 18px;
+      padding: 14px;
+    }
+
+    .quiz-overview {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
     .stat {
       background: var(--surface-soft);
       border-radius: var(--radius);
@@ -645,7 +656,8 @@
       .layout,
       .grid-two,
       .answer-box,
-      .stats-grid {
+      .stats-grid,
+      .quiz-overview {
         grid-template-columns: 1fr;
       }
 
@@ -704,6 +716,27 @@
         <button class="btn gold" id="adminModeBtn" type="button">관리자</button>
       </div>
     </header>
+
+    <section class="panel quiz-info-panel" aria-label="퀴즈 현황">
+      <div class="quiz-overview">
+        <div class="stat">
+          <span>문제</span>
+          <strong id="roundNumberStat">대기</strong>
+        </div>
+        <div class="stat">
+          <span>답안 제출</span>
+          <strong id="answerSubmitRatioStat">0 / 0</strong>
+        </div>
+        <div class="stat">
+          <span>정답 인원</span>
+          <strong id="correctRatioStat">채점 전</strong>
+        </div>
+        <div class="stat">
+          <span>이번 배점</span>
+          <strong id="scoreGainStat">채점 전</strong>
+        </div>
+      </div>
+    </section>
 
     <section id="participantView" class="layout">
       <div>
@@ -901,6 +934,7 @@
       getDatabase,
       ref,
       onValue,
+      onDisconnect,
       set,
       update,
       runTransaction
@@ -951,12 +985,19 @@
     let currentMode = sessionStorage.getItem(ADMIN_SESSION_KEY) === "1" ? "admin" : "participant";
     let selectedQuestionType = "short";
     let selectedOxCorrect = "O";
+    let presenceKey = "";
+    let presenceDisconnect = null;
+    let firebaseReady = false;
     let toastTimer = null;
 
     const el = {
       participantCount: document.getElementById("participantCount"),
       leaderboardList: document.getElementById("leaderboardList"),
       roundSummary: document.getElementById("roundSummary"),
+      roundNumberStat: document.getElementById("roundNumberStat"),
+      answerSubmitRatioStat: document.getElementById("answerSubmitRatioStat"),
+      correctRatioStat: document.getElementById("correctRatioStat"),
+      scoreGainStat: document.getElementById("scoreGainStat"),
       participantModeBtn: document.getElementById("participantModeBtn"),
       adminModeBtn: document.getElementById("adminModeBtn"),
       participantView: document.getElementById("participantView"),
@@ -1022,10 +1063,21 @@
     }
 
     function getParticipants() {
-      return Object.values(state.participants || {}).sort((a, b) => {
+      return Object.values(state.participants || {}).filter(participant => participant.online !== false).sort((a, b) => {
         if ((b.score || 0) !== (a.score || 0)) return (b.score || 0) - (a.score || 0);
         return `${a.studentId}`.localeCompare(`${b.studentId}`, "ko");
       });
+    }
+
+    function getActiveParticipantKeys() {
+      return getParticipants().map(participant => participant.key);
+    }
+
+    function getSubmittedCount() {
+      return getActiveParticipantKeys().filter(key => {
+        const submission = state.submissions[key];
+        return submission && String(submission.answer || "").trim() !== "";
+      }).length;
     }
 
     function getParticipantKey() {
@@ -1111,6 +1163,55 @@
       showToast("Firebase 저장 또는 연결 권한을 확인해 주세요.");
     }
 
+    function registerParticipantPresence(key) {
+      if (!key) return;
+      if (presenceKey === key) {
+        if (state.participants[key] && state.participants[key].online === false) {
+          update(ref(db, `${ROOM_PATH}/participants/${key}`), {
+            online: true,
+            connectedAt: new Date().toISOString()
+          }).catch(showFirebaseError);
+        }
+        return;
+      }
+      if (presenceDisconnect) {
+        presenceDisconnect.cancel().catch(() => {});
+      }
+      presenceKey = key;
+      const participantRef = ref(db, `${ROOM_PATH}/participants/${key}`);
+      update(participantRef, {
+        online: true,
+        connectedAt: new Date().toISOString()
+      }).catch(showFirebaseError);
+      presenceDisconnect = onDisconnect(participantRef);
+      presenceDisconnect.update({
+        online: false
+      }).catch(showFirebaseError);
+    }
+
+    function markParticipantOfflineNow() {
+      if (!presenceKey || !state.participants[presenceKey]) return;
+      update(ref(db, `${ROOM_PATH}/participants/${presenceKey}`), {
+        online: false
+      }).catch(() => {});
+    }
+
+    function markParticipantOnlineNow() {
+      if (!presenceKey || !state.participants[presenceKey]) return;
+      update(ref(db, `${ROOM_PATH}/participants/${presenceKey}`), {
+        online: true,
+        connectedAt: new Date().toISOString()
+      }).catch(() => {});
+    }
+
+    function clearParticipantPresence() {
+      if (presenceDisconnect) {
+        presenceDisconnect.cancel().catch(() => {});
+      }
+      presenceDisconnect = null;
+      presenceKey = "";
+    }
+
     function setBadge(node, phase, number) {
       node.className = "badge";
       if (phase === "open") {
@@ -1173,12 +1274,22 @@
     function renderHeader() {
       const quiz = state.quiz;
       const typeLabel = quiz.type === "ox" ? "OX" : "서술형";
+      const totalCount = getParticipants().length;
+      const submittedCount = getSubmittedCount();
+      const correctText = quiz.phase === "graded" ? `${quiz.correctCount || 0}/${quiz.totalCount || totalCount}명` : "채점 전";
+      const pointText = quiz.phase === "graded" ? `+${quiz.pointValue || 0}점` : "채점 전";
+
+      el.roundNumberStat.textContent = quiz.number ? `${quiz.number}번 ${typeLabel}` : "대기";
+      el.answerSubmitRatioStat.textContent = `${submittedCount} / ${totalCount}`;
+      el.correctRatioStat.textContent = correctText;
+      el.scoreGainStat.textContent = pointText;
+
       if (quiz.phase === "open") {
-        el.roundSummary.textContent = `${quiz.number}번 ${typeLabel} 문제 진행 중 · 제출 ${Object.keys(state.submissions).length}명`;
+        el.roundSummary.textContent = `${quiz.number}번 ${typeLabel} 문제 진행 중 · 답안 제출 ${submittedCount}/${totalCount}명 · 정답 채점 전`;
       } else if (quiz.phase === "graded") {
-        el.roundSummary.textContent = `${quiz.number}번 채점 완료 · 정답 ${quiz.correctCount}/${quiz.totalCount}명 · +${quiz.pointValue}점`;
+        el.roundSummary.textContent = `${quiz.number}번 ${typeLabel} 채점 완료 · 정답 ${quiz.correctCount || 0}/${quiz.totalCount || totalCount}명 · ${pointText}`;
       } else {
-        el.roundSummary.textContent = "대기 중";
+        el.roundSummary.textContent = `대기 중 · 현재 참가 ${totalCount}명`;
       }
     }
 
@@ -1194,16 +1305,18 @@
     function renderParticipant() {
       const participant = getCurrentParticipant();
       const localKey = getParticipantKey();
-      const staleLocalKey = localKey && !participant;
+      const staleLocalKey = firebaseReady && localKey && !participant;
 
       el.joinPanel.classList.toggle("hidden", Boolean(participant));
       el.profilePanel.classList.toggle("hidden", !participant);
 
       if (participant) {
+        registerParticipantPresence(participant.key);
         el.profileStudentId.textContent = participant.studentId;
         el.profileName.textContent = participant.name;
         el.profileScore.textContent = participant.score || 0;
       } else if (staleLocalKey) {
+        clearParticipantPresence();
         localStorage.removeItem(PARTICIPANT_LOCAL_KEY);
       }
 
@@ -1280,11 +1393,12 @@
       setBadge(el.adminQuizBadge, state.quiz.phase, state.quiz.number);
       renderQuestionStage(el.adminQuestionStage);
 
-      const submissionCount = Object.keys(state.submissions).length;
-      el.submittedStat.textContent = submissionCount;
-      el.correctStat.textContent = state.quiz.phase === "graded" ? state.quiz.correctCount : "-";
-      el.pointStat.textContent = state.quiz.phase === "graded" ? state.quiz.pointValue : "-";
-      el.submissionCountBadge.textContent = `${submissionCount}개`;
+      const totalCount = getParticipants().length;
+      const submissionCount = getSubmittedCount();
+      el.submittedStat.textContent = `${submissionCount}/${totalCount}`;
+      el.correctStat.textContent = state.quiz.phase === "graded" ? `${state.quiz.correctCount || 0}/${state.quiz.totalCount || totalCount}` : "채점 전";
+      el.pointStat.textContent = state.quiz.phase === "graded" ? `+${state.quiz.pointValue || 0}` : "채점 전";
+      el.submissionCountBadge.textContent = `${submissionCount}/${totalCount}`;
       el.gradeBtn.disabled = state.quiz.phase !== "open";
 
       if (state.quiz.phase !== "waiting") {
@@ -1493,6 +1607,7 @@
             studentId,
             name,
             score: 0,
+            online: true,
             joinedAt: new Date().toISOString()
           };
         });
@@ -1503,6 +1618,7 @@
         }
 
         localStorage.setItem(PARTICIPANT_LOCAL_KEY, key);
+        registerParticipantPresence(key);
         el.studentIdInput.value = "";
         el.studentNameInput.value = "";
         showToast(`${name} 참가 등록 완료`);
@@ -1596,7 +1712,7 @@
 
           const type = nextState.quiz.type === "ox" ? "ox" : "short";
           const answer = type === "ox" ? normalizeOx(overrideAnswer) : overrideAnswer;
-          const participants = Object.values(nextState.participants || {});
+          const participants = Object.values(nextState.participants || {}).filter(participant => participant.online !== false);
           const totalCount = participants.length;
           const results = participants.map(participant => {
             const submission = nextState.submissions[participant.key];
@@ -1753,10 +1869,18 @@
       }
     });
 
+    window.addEventListener("pagehide", markParticipantOfflineNow);
+    window.addEventListener("pageshow", markParticipantOnlineNow);
+
     onValue(roomRef, snapshot => {
       state = normalizeState(snapshot.val());
+      firebaseReady = true;
       if (!snapshot.exists()) {
         set(roomRef, state).catch(showFirebaseError);
+      }
+      const localKey = getParticipantKey();
+      if (localKey && state.participants[localKey]) {
+        registerParticipantPresence(localKey);
       }
       render();
     }, showFirebaseError);
