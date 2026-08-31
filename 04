@@ -89,14 +89,15 @@
 
         // 🔑 [필수] 본인의 파이어베이스 콘솔 정보로 교체하세요!
         const firebaseConfig = {
-            apiKey: "YOUR_FIREBASE_API_KEY",
-            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-            databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_PROJECT_ID.appspot.com",
-            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-            appId: "YOUR_APP_ID"
-        };
+  apiKey: "AIzaSyBsPotBhA5PY2SdZeXGfz89ScqlLaSPxyo",
+  authDomain: "quiz-prac-c1208.firebaseapp.com",
+  databaseURL: "https://quiz-prac-c1208-default-rtdb.firebaseio.com",
+  projectId: "quiz-prac-c1208",
+  storageBucket: "quiz-prac-c1208.firebasestorage.app",
+  messagingSenderId: "874539418189",
+  appId: "1:874539418189:web:3b7c0a10f725b745515204",
+  measurementId: "G-FR4Y2PBDM7"
+};
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
